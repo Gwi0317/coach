@@ -40,14 +40,15 @@ const DEFAULT_FOODS = {
 
   wheyfraise: { n:"Whey isolate fruits rouges EA Fit", u:"g", k:377, p:80, c:8, l:2, st:5, uG:30, uN:"dose", cat:"complement" },
   clear:      { n:"Clear Whey Bulk",       u:"g",  k:354, p:82,  c:3,   l:0.5,  st:2,  uG:26, uN:"dose", cat:"complement" },
-  barapurna:  { n:"Barre Apurna caramel",  u:"g",  k:351, p:30,  c:38,  l:8,    st:45, uG:45, uN:"barre", cat:"complement" },
+  barapurna:  { n:"Barre Apurna 35% caramel", u:"g", k:352, p:35, c:21, l:12,  st:45, uG:45, uN:"barre", cat:"complement", pack:[45,"barre"] },
+  apurnapw:   { n:"Apurna Pre Workout",    u:"g",  k:310, p:25,  c:40,  l:0,    st:10, uG:20, uN:"dose", cat:"complement", pack:[420,"pot de 420 g"] },
   creatine:   { n:"Créatine",              u:"g",  k:0,   p:0,   c:0,   l:0,    st:1,  cat:"complement" },
   bbq:        { n:"Sauce BBQ 0% Bulk",     u:"g",  k:20,  p:0.2, c:4.5, l:0.1,  st:10, cat:"epicerie" },
   ail:        { n:"Sauce ail & fines herbes", u:"g", k:90, p:0.5, c:5,  l:7.5,  st:10, cat:"epicerie" },
   choco:      { n:"Sauce zéro choco-caramel", u:"g", k:10, p:0,  c:2,   l:0,    st:5,  cat:"epicerie" },
 
   mcnuggets:  { n:"Chicken McNuggets",     u:"g",  k:244, p:14,  c:16,  l:14,   st:18, uG:18, uN:"nugget", cat:"horsplan" },
-  fluffy:     { n:"Fluffy chocolat Protifast", u:"g", k:361, p:45, c:25, l:8,   st:44, uG:44, uN:"portion", cat:"horsplan" },
+  barprotif:  { n:"Barre Protifast chocolat", u:"g", k:362, p:34,  c:20,  l:14,   st:44, uG:44, uN:"barre", cat:"complement", pack:[308,"boîte de 7"] },
   painbio:    { n:"Pain bio complet La Boulangère", u:"g", k:252, p:9, c:41, l:3.5, st:33, uG:33, uN:"tranche", cat:"epicerie", pack:[500,"paquet"] },
 };
 
@@ -56,6 +57,14 @@ const DEFAULT_FOODS = {
 const PDJ    = [["skyr",200],["muesli",40],["miel",15],["painmie",80],["confiture",20]];
 const GOUT_A = [["wheyfraise",30],["flocons",60],["mangue",100],["laitavoine",200],["creatine",5]];
 const GOUT_B = [["clear",26],["wasa",37.5],["miel",20],["mangue",150],["creatine",5]];
+
+/* Variantes de goûter interchangeables — le titre du repas commence par "Goûter" */
+const GOUTER_VARIANTS = [
+  { n:"smoothie",   f:GOUT_A },
+  { n:"clear whey", f:GOUT_B },
+  { n:"barre Apurna", f:[["barapurna",45],["skyr",200],["mangue",150],["wasa",25],["creatine",5]] },
+  { n:"barre Protifast", f:[["barprotif",44],["skyr",200],["mangue",150],["miel",15],["creatine",5]] },
+];
 
 const DEFAULT_PLAN = {
   Lun: [
@@ -105,7 +114,7 @@ const LONG = { Lun:"Lundi", Mar:"Mardi", Mer:"Mercredi", Jeu:"Jeudi", Ven:"Vendr
 const DEFAULT_PROGRAM = {
   Lun: { id:"pec", name:"Pec + triceps", kind:"gym", tag:"Obligatoire", ex:[
     { id:"dch",       n:"Développé couché haltères",   s:4, r:[8,10],  kg:35,  inc:2.5, tier:1, note:"Repos 2 min" },
-    { id:"dim",       n:"Développé incliné machine",   s:3, r:[8,10],  kg:50,  inc:5,   tier:1 },
+    { id:"dim",       n:"Développé incliné Smith machine", s:3, r:[8,10], kg:50, inc:2.5, tier:1, note:"1,25 kg de chaque côté pour monter" },
     { id:"dips",      n:"Dips lestés",                 s:3, r:[8,10],  kg:10,  inc:2.5, tier:1, note:"En 3ᵉ position, tu as plus de jus" },
     { id:"poulieuni", n:"Poulie unilatérale pec",      s:3, r:[12,12], kg:12,  inc:2,   tier:3 },
     { id:"tricorde",  n:"Triceps corde poulie basse",  s:3, r:[10,12], kg:15,  inc:2.5, tier:2 },
