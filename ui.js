@@ -80,7 +80,7 @@ function viewBilan() {
   });
   if (b.tr && b.tr.adj) h += '<button class="cta wgt" data-act="applyadj" data-id="' + b.tr.adj + '">Appliquer ' +
        (b.tr.adj > 0 ? "+" : "") + b.tr.adj + " kcal au plan</button>";
-  h += '<button class="ghost" data-act="clore">Clore la semaine et repartir à zéro</button>' +
+  h += '<button class="ghost" data-act="newweek">Nouvelle semaine : remettre le planning type et vider la liste de courses</button>' +
        '<p class="small">Les calories se règlent sur la moyenne de la semaine, jamais sur un seul écart. Un gros repas ne se rattrape pas le lendemain.</p></div>';
   return h;
 }
@@ -109,18 +109,25 @@ function viewSemaine() {
   return h + "</div>";
 }
 
+function newWeekBtn() {
+  return '<div class="nw">' + (V.tmp.nwmsg ? '<span class="small">' + esc(V.tmp.nwmsg) + "</span>" : "") +
+    '<button class="' + (V.tmp.nw ? "cta danger nwb" : "ghost nwb") + '" data-act="newweek">' +
+    (V.tmp.nw ? "Confirmer" : "Nouvelle semaine") + "</button></div>";
+}
+
 function viewSeance() {
   const d = V.day, sess = sessionFor(d);
-  let h = viewBilan();
+  let h = viewBilan() + newWeekBtn();
 
   if (V.tmp.sem) h += viewSemaine();
 
   if (!sess) {
     const id = week()[d];
-    h += '<div class="hero"><small>' + (id === "absent" ? "Tu n\'es pas là" : id === "padel" ? "Padel" : "Repos") + "</small>" +
-         "<h1>" + (id === "padel" ? "Padel à la place de la séance" : id === "absent" ? "Journée hors programme" : "Repos") + "</h1>" +
-         "<p>" + (id === "padel"
-           ? "Le padel compte comme séance. Ne rajoute pas de muscu par-dessus si tu étais cuit : c'est la récupération qui fait progresser."
+    const sport = id === "padel" || id === "autre";
+    h += '<div class="hero"><small>' + (id === "absent" ? "Tu n\'es pas là" : sport ? nomSlot(id) : "Repos") + "</small>" +
+         "<h1>" + (sport ? "Du sport à la place de la séance" : id === "absent" ? "Journée hors programme" : "Repos") + "</h1>" +
+         "<p>" + (sport
+           ? "Ça compte comme séance. Ne rajoute pas de muscu par-dessus si tu étais cuit : c'est la récupération qui fait progresser."
            : "Rien de prévu. Si tu veux caler une séance ici, ouvre Ma semaine juste en dessous.") + "</p></div>";
     h += '<button class="tog full" data-act="sem">' + (V.tmp.sem ? "Fermer" : "Ouvrir") + " Ma semaine</button>";
     return h;
@@ -128,7 +135,6 @@ function viewSeance() {
 
   if (sess.kind === "run") {
     const r = sess.run, logged = S.runs[dayStamp(d)];
-    h = viewBilan();
     const done = Object.keys(S.runs).length;
     const presc = d === "Dim" ? Math.min(r.min + 5 * Math.min(done, 6), 85) : r.min;
     const t = V.tmp.run || (V.tmp.run = { min: presc, km: 7 });
@@ -138,7 +144,8 @@ function viewSeance() {
          "<div><small>Cardio</small><b>" + r.hr + " bpm</b></div></div>" +
          "<p>Tu dois pouvoir tenir une conversation. Tu pars toujours trop vite : surveille ta montre sur les deux premiers kilomètres, pas à la fin.</p></div>";
     h += '<button class="tog full' + (S.padel[d] ? " on" : "") + '" data-act="padel">' + (S.padel[d] ? "✓ " : "") + "Padel ce jour-là</button>" +
-         '<button class="tog full' + (S.pw[dayStamp(d)] ? " on" : "") + '" data-act="pw">' + (S.pw[dayStamp(d)] ? "✓ " : "") + "Pre-workout Apurna avant la sortie</button>";
+         '<button class="tog full' + (S.pw[dayStamp(d)] ? " on" : "") + '" data-act="pw">' + (S.pw[dayStamp(d)] ? "✓ " : "") + "Pre-workout Apurna avant la sortie</button>" +
+         '<button class="tog full danger" data-act="sem">Je n\'ai pas pu</button>';
     if (S.padel[d]) h += '<p class="note warn">' + (d === "Sam"
       ? "Le padel remplace la course facile. C'est déjà du cardio en intermittent, et ça garde tes jambes pour dimanche."
       : "Padel et sortie longue le même jour, c'est lourd. Cours 30 min le matin et garde le padel pour l'après-midi.") + "</p>";
@@ -390,7 +397,7 @@ function viewCourses() {
     });
     h += "</div>";
   }
-  return h + '<button class="ghost" data-act="resetshop">Nouvelle semaine</button>';
+  return h + '<button class="ghost" data-act="resetshop">Vider la liste</button>';
 }
 
 /* ═════════ RÉGLAGES ═════════ */
@@ -509,6 +516,13 @@ document.addEventListener("click", (e) => {
     S.done[k][id] = !S.done[k][id]; save();
   }
   else if (a === "clore") { cloreSemaine(); }
+  else if (a === "newweek") {
+    if (!V.tmp.nw) { V.tmp.nw = 1; }
+    else {
+      cloreSemaine(); resetWeek();
+      V.tmp = { nwmsg: "Planning type rétabli, courses et padels remis à zéro." };
+    }
+  }
   else if (a === "scan") {
     const code = (V.tmp.bc || "").replace(/\D/g, "");
     if (!code) { V.tmp.bcmsg = "Tape d'abord les chiffres du code-barres."; render(); return; }

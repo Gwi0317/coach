@@ -100,9 +100,9 @@ function progress(ex, reps, kgs) {
 
 const SESS = {};
 DAYS.forEach((d) => { SESS[DEFAULT_PROGRAM[d].id] = DEFAULT_PROGRAM[d]; });
-const HORS = { padel:"Padel à la place", repos:"Repos", absent:"Absent" };
+const HORS = { padel:"Padel à la place", autre:"Autre sport", repos:"Repos", absent:"Absent" };
 const PRIO = ["jambes", "pec", "dos", "epaules", "force"];   // du moins sacrifiable au plus
-const CHOIX = ["pec","dos","jambes","epaules","force","runeasy","runlong","padel","repos","absent"];
+const CHOIX = ["pec","dos","jambes","epaules","force","runeasy","runlong","padel","autre","repos","absent"];
 const nomSlot = (id) => (SESS[id] ? SESS[id].name : HORS[id] || "Repos");
 
 function defaultWeek() { const w = {}; DAYS.forEach((d) => { w[d] = DEFAULT_PROGRAM[d].id; }); return w; }
@@ -305,7 +305,9 @@ const lastKeys = (obj, n) => Object.keys(obj || {}).filter((k) => k.slice(0, 10)
 /* Ce que la semaine écoulée dit du programme */
 function bilanSemaine() {
   const logKeys = lastKeys(S.logs, 7);
-  const seances = logKeys.filter((k) => Object.keys(S.logs[k] || {}).length).length;
+  const jours = {};
+  logKeys.forEach((k) => { if (Object.keys(S.logs[k] || {}).length) jours[k.slice(0, 10)] = 1; });
+  const seances = Object.keys(jours).length;
 
   // exercices qui ont pris de la charge depuis le dernier bilan
   const snap = S.snap || {};
