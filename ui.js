@@ -26,6 +26,11 @@ function objLine(ex, kg, done) {
   return h + "</div>";
 }
 
+function EXBASE(d, ex) {
+  const s = sessionFor(d);
+  return s && s.ex ? s.ex.filter((x) => x.id === (ex.base || ex.id))[0] : null;
+}
+
 function resume(done) {
   const kgs = done.kgs || done.reps.map(() => done.kg);
   const uniforme = kgs.every((k) => k === kgs[0]);
@@ -178,18 +183,28 @@ function viewSeance() {
   if (S.padel[d]) h += '<p class="note warn">Séance allégée. Ta cible du jour monte de 350 kcal de glucides. Si le padel dépasse 1 h 30, coche l\'Apurna dans l\'onglet Repas : l\'Ergymag passe alors à 2 gélules.</p>';
 
 
-  sess.ex.forEach((ex, i) => {
+  exList(sess).forEach((ex, i) => {
     const kg = chargeOf(ex), done = log[ex.id], open = V.openEx === ex.id;
     h += '<div class="card exo' + (open ? " open" : "") + '"><div class="exhead" data-act="openex" data-id="' + ex.id + '">' +
          '<span class="idx">' + (i + 1) + "</span><div class=\"grow\"><b>" + esc(ex.n) + "</b><small>" +
-         ex.s + " × " + (ex.r[0] === ex.r[1] ? ex.r[0] : ex.r[0] + "-" + ex.r[1]) + (ex.note ? " · " + esc(ex.note) : "") + "</small></div>" +
+         ex.s + " × " + (ex.r[0] === ex.r[1] ? ex.r[0] : ex.r[0] + "-" + ex.r[1]) +
+         (ex.rest ? " · pause " + (ex.rest >= 60 ? (ex.rest % 60 ? Math.floor(ex.rest / 60) + " min " + (ex.rest % 60) : Math.floor(ex.rest / 60) + " min") : ex.rest + " s") : "") +
+         (ex.note ? " · " + esc(ex.note) : "") + "</small></div>" +
          '<div class="kg' + (done ? " ok" : "") + '">' + (ex.bw && !kg ? "PDC" : fr(kg) + "<i>kg</i>") +
          (done ? "<small>" + resume(done) + "</small>" : "") + "</div></div>" + objLine(ex, kg, done);
     if (open) {
       const reps = V.tmp.reps || (V.tmp.reps = new Array(ex.s).fill(ex.r[1]));
       const kgs = V.tmp.kgs || (V.tmp.kgs = new Array(ex.s).fill(kg));
       const charge = !ex.bw || ex.inc > 0;
-      h += '<div class="exbody"><small>Série par série : charge et reps</small><div class="sets">';
+      h += '<div class="exbody">';
+      const base = EXBASE(d, ex);
+      if (base && base.alt) {
+        h += '<div class="vars"><small>Version du jour</small><div class="duo wrap">' +
+             [{ id:base.id, n:base.n, kg:base.kg }].concat(base.alt).map((v) =>
+               '<button class="tog' + (v.id === ex.id ? " on" : "") + '" data-act="setvar" data-id="' + base.id + "." + v.id + '">' +
+               v.n + "</button>").join("") + "</div></div>";
+      }
+      h += '<small>Série par série : charge et reps</small><div class="sets">';
       reps.forEach((r, k) => {
         h += '<div class="set"><span class="sn">' + (k + 1) + "</span>" +
              (charge ? stepper("skg", k, kgs[k], " kg", ex.inc || 0.5) : '<span class="pdc">poids du corps</span>') +
@@ -217,6 +232,18 @@ function viewRepas() {
   if (!meals.length) {
     h += '<div class="hero nut"><small>Week-end</small><h1>Repas libres</h1><p>Chez tes parents. Mange à ta faim, ne compte pas : sur sept jours ça s\'équilibre.</p></div>';
     return h + viewSupps(d);
+  }
+
+  const props = propositions();
+  if (props.length && !V.tmp.propsOff) {
+    h += '<div class="card pad prop"><h3>Envie de changer cette semaine ?</h3>';
+    props.forEach((p, i) => {
+      h += '<div class="propline"><b>' + LONG[p.d] + (p.slot === "dej" ? " midi" : " soir") + "</b> : " + esc(p.cand.n) + '<span class="small">au lieu de ' + esc(p.actuel.replace(/^(Déjeuner|Dîner) — /, "")) +
+           (p.delta ? ", " + (p.delta > 0 ? "+" : "") + p.delta + " kcal, rattrapés sur les féculents" : "") + "</span>" +
+           '<span class="propbtn"><button class="tog" data-act="propok" data-id="' + i + '">Oui</button>' +
+           '<button class="tog" data-act="propno" data-id="' + i + '">Non</button></span></div>';
+    });
+    h += '<button class="ghost" data-act="propoff">Pas maintenant</button></div>';
   }
 
   h += '<div class="card pad"><div class="big">' + Math.round(t[0]) + "<small>" + (tg ? "/ " + tg + " kcal" : " kcal jusqu'au goûter") + "</small></div>" +
@@ -455,7 +482,7 @@ function render() {
 document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const a = el.dataset.act, id = el.dataset.id, d = V.day;
-  const sess = sessionFor(d) || {}, ex = sess.ex ? sess.ex.filter((x) => x.id === V.openEx)[0] : null;
+  const sess = sessionFor(d) || {}, ex = sess.ex ? exList(sess).filter((x) => x.id === V.openEx)[0] : null;
 
   if (a === "tab") { V.tab = id; V.openEx = V.openMeal = V.picker = null; V.editFood = null; V.tmp = {}; }
   else if (a === "day") { V.day = id; V.openEx = V.openMeal = V.picker = null; V.tmp = {}; }
@@ -484,6 +511,11 @@ document.addEventListener("click", (e) => {
     const i = +id, s = ex && ex.inc ? ex.inc : 0.5;
     V.tmp.kgs[i] = Math.max(0, Math.round((V.tmp.kgs[i] + (a === "skg+" ? s : -s)) * 10) / 10);
   }
+  else if (a === "setvar") {
+    const [baseId, vId] = id.split(".");
+    S.variante[baseId] = vId; save();
+    V.openEx = vId; V.tmp = {};
+  }
   else if (a === "skgall") { V.tmp.kgs = V.tmp.kgs.map(() => V.tmp.kgs[0]); }
   else if (a === "logex" && ex) {
     const res = progress(ex, V.tmp.reps, V.tmp.kgs);
@@ -511,6 +543,9 @@ document.addEventListener("click", (e) => {
     const [mi, vi] = id.split(".").map(Number), v = GOUTER_VARIANTS[vi];
     editPlan((p) => { p[d][mi].f = JSON.parse(JSON.stringify(v.f)); p[d][mi].t = "Goûter — " + v.n; });
   }
+  else if (a === "propok") { accepter(propositions()[+id]); }
+  else if (a === "propno") { refuser(propositions()[+id]); }
+  else if (a === "propoff") { V.tmp.propsOff = 1; }
   else if (a === "mealdone") {
     const k = dayStamp(d); S.done[k] = S.done[k] || {};
     S.done[k][id] = !S.done[k][id]; save();

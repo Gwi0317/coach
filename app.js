@@ -4,7 +4,7 @@ const KEY = "coach.v2";
 const BLANK = {
   foodEdits:{}, foodAdd:{}, plan:null, charges:{}, logs:{}, runs:{}, weights:[],
   extras:{}, supps:{}, padel:{}, skipped:{}, apurna:{}, pw:{}, stock:{}, shop:{},
-  done:{}, seen:{}, snap:null, manual:[], dette:[], phase:"p1", offset:0,
+  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], phase:"p1", offset:0,
 };
 let S = load();
 if (!S.pw) S.pw = {};
@@ -13,6 +13,8 @@ if (!S.done) S.done = {};
 if (!S.seen) S.seen = {};
 if (!S.manual) S.manual = [];
 if (!S.dette) S.dette = [];
+if (!S.variante) S.variante = {};
+if (!S.refus) S.refus = [];
 let FOODS = {}, PLAN = {};
 
 function load() {
@@ -346,7 +348,11 @@ function nomExo(id) {
   let n = id;
   Object.keys(DEFAULT_PROGRAM).forEach((d) => {
     const s = DEFAULT_PROGRAM[d];
-    if (s.ex) s.ex.forEach((e) => { if (e.id === id) n = e.n; });
+    if (!s.ex) return;
+    s.ex.forEach((e) => {
+      if (e.id === id) n = e.n;
+      (e.alt || []).forEach((v) => { if (v.id === id) n = v.n; });
+    });
   });
   return n;
 }
@@ -402,3 +408,44 @@ function ilYA(dateISO) {
   if (j < 14) return "il y a " + j + " jours";
   return "il y a " + Math.round(j / 7) + " semaines";
 }
+
+
+/* ═════════ VARIANTES D'EXERCICE ═════════
+   Même mouvement, matériel différent : la charge est suivie séparément
+   puisque 10 kg d'haltère ne valent pas 12 kg à la poulie.
+*/
+function exActif(ex) {
+  const v = S.variante[ex.id];
+  if (!v || v === ex.id || !ex.alt) return ex;
+  const a = ex.alt.filter((x) => x.id === v)[0];
+  return a ? Object.assign({}, ex, { id:a.id, n:a.n, kg:a.kg, inc:a.inc || ex.inc, note:a.note || "", base:ex.id }) : ex;
+}
+function exList(sess) { return (sess.ex || []).map(exActif); }
+
+/* ═════════ PROPOSITIONS DE REPAS ═════════ */
+
+function propositions() {
+  const out = [], n = parseInt(weekId().slice(-2), 10) || 0;
+  ["Lun", "Mar", "Mer", "Jeu", "Ven"].forEach((d, i) => {
+    [["dej", 1], ["diner", 3]].forEach(([slot, idx], j) => {
+      const meal = (PLAN[d] || [])[idx];
+      if (!meal) return;
+      const pool = REPAS_VAR[slot];
+      const cand = pool[(n + i * 2 + j) % pool.length];
+      // même source de protéines = même repas, on ne propose pas
+      if (!cand || !meal.f.length || meal.f[0][0] === cand.f[0][0]) return;
+      if (S.refus.indexOf(d + slot + cand.n) >= 0) return;
+      const delta = Math.round(mac(cand.f)[0] - mac(meal.f)[0]);
+      out.push({ d, idx, slot, cand, actuel: meal.t, delta });
+    });
+  });
+  return out.slice(0, 3);
+}
+function accepter(p) {
+  editPlan((plan) => {
+    plan[p.d][p.idx] = { t: (p.slot === "dej" ? "Déjeuner — " : "Dîner — ") + p.cand.n,
+                         h: plan[p.d][p.idx].h, f: JSON.parse(JSON.stringify(p.cand.f)) };
+  });
+  alignPlan(); save();
+}
+function refuser(p) { S.refus.push(p.d + p.slot + p.cand.n); save(); }
