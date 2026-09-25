@@ -26,10 +26,7 @@ function objLine(ex, kg, done) {
   return h + "</div>";
 }
 
-function EXBASE(d, ex) {
-  const s = sessionFor(d);
-  return s && s.ex ? s.ex.filter((x) => x.id === (ex.base || ex.id))[0] : null;
-}
+function EXBASE(d, ex) { return EXCAT[ex.base || ex.id] || null; }
 
 function resume(done) {
   const kgs = done.kgs || done.reps.map(() => done.kg);
@@ -183,6 +180,10 @@ function viewSeance() {
   if (S.padel[d]) h += '<p class="note warn">Séance allégée. Ta cible du jour monte de 350 kcal de glucides. Si le padel dépasse 1 h 30, coche l\'Apurna dans l\'onglet Repas : l\'Ergymag passe alors à 2 gélules.</p>';
 
 
+  const edit = !!V.tmp.edit;
+  h += '<button class="tog full" data-act="editseance">' + (edit ? "Terminer la modification" : "Modifier les exercices") + "</button>";
+  if (edit) h += '<p class="small">Retire, réordonne, ajoute. Chaque exercice garde sa charge et son historique.</p>';
+
   exList(sess).forEach((ex, i) => {
     const kg = chargeOf(ex), done = log[ex.id], open = V.openEx === ex.id;
     h += '<div class="card exo' + (open ? " open" : "") + '"><div class="exhead" data-act="openex" data-id="' + ex.id + '">' +
@@ -191,7 +192,10 @@ function viewSeance() {
          (ex.rest ? " · pause " + (ex.rest >= 60 ? (ex.rest % 60 ? Math.floor(ex.rest / 60) + " min " + (ex.rest % 60) : Math.floor(ex.rest / 60) + " min") : ex.rest + " s") : "") +
          (ex.note ? " · " + esc(ex.note) : "") + "</small></div>" +
          '<div class="kg' + (done ? " ok" : "") + '">' + (ex.bw && !kg ? "PDC" : fr(kg) + "<i>kg</i>") +
-         (done ? "<small>" + resume(done) + "</small>" : "") + "</div></div>" + objLine(ex, kg, done);
+         (done ? "<small>" + resume(done) + "</small>" : "") + "</div>" +
+         (edit ? '<span class="exedit"><button data-act="exup" data-id="' + ex.id + '">↑</button>' +
+                 '<button data-act="exdel" data-id="' + ex.id + '">✕</button></span>' : "") +
+         "</div>" + (edit ? "" : objLine(ex, kg, done));
     if (open) {
       const reps = V.tmp.reps || (V.tmp.reps = new Array(ex.s).fill(ex.r[1]));
       const kgs = V.tmp.kgs || (V.tmp.kgs = new Array(ex.s).fill(kg));
@@ -218,6 +222,13 @@ function viewSeance() {
     }
     h += "</div>";
   });
+
+  if (edit) {
+    h += '<div class="card pad"><h3>Ajouter un exercice</h3><div class="addex">' +
+         EXALL.filter((id) => exIds(sess).indexOf(id) < 0).map((id) =>
+           '<button class="tog" data-act="exadd" data-id="' + id + '">' + esc(EXCAT[id].n) + "</button>").join("") +
+         '</div><button class="ghost" data-act="exreset">Remettre la séance d\'origine</button></div>';
+  }
 
   if (sess.alt) h += '<p class="note run">Semaine chargée ? Remplace cette séance par 30 min de course en zone 2. Les quatre séances de lundi à jeudi sont la priorité.</p>';
   return h;
@@ -511,6 +522,11 @@ document.addEventListener("click", (e) => {
     const i = +id, s = ex && ex.inc ? ex.inc : 0.5;
     V.tmp.kgs[i] = Math.max(0, Math.round((V.tmp.kgs[i] + (a === "skg+" ? s : -s)) * 10) / 10);
   }
+  else if (a === "editseance") { V.tmp.edit = !V.tmp.edit; V.openEx = null; }
+  else if (a === "exdel") { exDel(sess, id); }
+  else if (a === "exup") { exUp(sess, id); }
+  else if (a === "exadd") { exAdd(sess, id); }
+  else if (a === "exreset") { exReset(sess); }
   else if (a === "setvar") {
     const [baseId, vId] = id.split(".");
     S.variante[baseId] = vId; save();

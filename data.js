@@ -190,16 +190,31 @@ const DEFAULT_PROGRAM = {
     { id:"crunch",    n:"Crunch poulie",               s:3, r:[12,15], kg:65, inc:5,   rest:60,  tier:3 },
     { id:"obliques",  n:"Obliques haltère",            s:3, r:[12,15], kg:14, inc:2,   rest:60,  tier:3 },
   ]},
-  Ven: { id:"force", name:"Force full body", kind:"gym", tag:"Variable d'ajustement", alt:1, ex:[
-    { id:"sdt",    n:"Soulevé de terre",       s:4, r:[3,5],   kg:100, inc:5,   rest:180, tier:1, note:"Technique parfaite" },
-    { id:"dcbar",  n:"Développé couché barre", s:4, r:[3,5],   kg:80,  inc:2.5, rest:180, tier:1 },
-    { id:"rowing", n:"Rowing barre",           s:3, r:[6,8],   kg:60,  inc:5,   rest:120, tier:2 },
-    { id:"hip2",   n:"Hip thrust",             s:3, r:[10,12], kg:35,  inc:5,   rest:90,  tier:3 },
-    { id:"roue",   n:"Roue abdominale",        s:3, r:[5,8],   kg:0,   inc:0,   rest:75,  bw:1, tier:3 },
+  Ven: { id:"force", name:"Force : tractions et bench", kind:"gym", tag:"Variable d'ajustement", alt:1, ex:[
+    { id:"sdt",     n:"Soulevé de terre",        s:4, r:[3,5], kg:100, inc:5,   rest:180, tier:1, note:"Technique parfaite, 3 min entre les séries" },
+    { id:"dcbar",   n:"Développé couché barre",  s:4, r:[3,5], kg:80,  inc:2.5, rest:180, tier:1,
+      alt:[{ id:"dcbar_p", n:"Développé couché pause 1 s", kg:70, inc:2.5 }] },
+    { id:"tract_f", n:"Tractions lestées",       s:4, r:[4,6], kg:2.5, inc:2.5, rest:150, tier:1,
+      note:"Lest léger, reps basses : c'est comme ça qu'on gagne en tractions",
+      alt:[{ id:"tract_f0", n:"Tractions poids du corps", kg:0, inc:2.5 }] },
+    { id:"dips_f",  n:"Dips lestés lourds",      s:4, r:[4,6], kg:12.5, inc:2.5, rest:150, tier:1 },
+    { id:"roue",    n:"Roue abdominale",         s:3, r:[5,8], kg:0,   inc:0,   rest:75,  bw:1, tier:3 },
+    { id:"gainage", n:"Gainage planche",         s:3, r:[30,60], kg:0, inc:0,   rest:60,  bw:1, tier:3, note:"Compte des secondes au lieu des reps" },
   ]},
   Sam: { id:"runeasy", name:"Course facile", kind:"run", tag:"Optionnel", run:{ min:30, pace:"6:15–6:45", hr:"moins de 145", label:"Récupération active" } },
   Dim: { id:"runlong", name:"Sortie longue", kind:"run", tag:"La course qui compte", run:{ min:50, pace:"6:00–6:30", hr:"130–150", label:"Endurance fondamentale" } },
 };
+
+/* Exercices hors séance type, disponibles dans « Modifier les exercices » */
+const EXTRAS = [
+  { id:"rowing",    n:"Rowing barre",            s:3, r:[6,8],   kg:60, inc:5,   rest:120, tier:2 },
+  { id:"elevfront", n:"Élévation frontale",      s:3, r:[10,12], kg:8,  inc:2,   rest:60,  tier:3 },
+  { id:"facepull",  n:"Face pull",               s:3, r:[12,15], kg:15, inc:2.5, rest:60,  tier:2 },
+  { id:"fentes",    n:"Fentes haltères",         s:3, r:[8,10],  kg:14, inc:2,   rest:90,  tier:2 },
+  { id:"gainlat",   n:"Gainage latéral",         s:3, r:[20,45], kg:0,  inc:0,   rest:45,  bw:1, tier:3, note:"En secondes, de chaque côté" },
+  { id:"hip2",      n:"Hip thrust (force)",      s:3, r:[10,12], kg:35, inc:5,   rest:90,  tier:3 },
+  { id:"sdt_pause", n:"Soulevé de terre pause",  s:4, r:[3,5],   kg:80, inc:5,   rest:180, tier:1, note:"1 s d'arrêt sous le genou" },
+];
 
 /* ═════════ PHASES ═════════ */
 

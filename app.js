@@ -4,7 +4,7 @@ const KEY = "coach.v2";
 const BLANK = {
   foodEdits:{}, foodAdd:{}, plan:null, charges:{}, logs:{}, runs:{}, weights:[],
   extras:{}, supps:{}, padel:{}, skipped:{}, apurna:{}, pw:{}, stock:{}, shop:{},
-  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], phase:"p1", offset:0,
+  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, phase:"p1", offset:0,
 };
 let S = load();
 if (!S.pw) S.pw = {};
@@ -15,6 +15,7 @@ if (!S.manual) S.manual = [];
 if (!S.dette) S.dette = [];
 if (!S.variante) S.variante = {};
 if (!S.refus) S.refus = [];
+if (!S.seance) S.seance = {};
 let FOODS = {}, PLAN = {};
 
 function load() {
@@ -420,7 +421,27 @@ function exActif(ex) {
   const a = ex.alt.filter((x) => x.id === v)[0];
   return a ? Object.assign({}, ex, { id:a.id, n:a.n, kg:a.kg, inc:a.inc || ex.inc, note:a.note || "", base:ex.id }) : ex;
 }
-function exList(sess) { return (sess.ex || []).map(exActif); }
+/* Catalogue de tous les exercices, variantes comprises : on peut composer n'importe quelle séance */
+const EXCAT = {};
+DAYS.forEach((d) => (DEFAULT_PROGRAM[d].ex || []).forEach((e) => {
+  EXCAT[e.id] = e;
+  (e.alt || []).forEach((v) => {
+    EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc, note:v.note || "", alt:null });
+  });
+}));
+EXTRAS.forEach((e) => { EXCAT[e.id] = e; });
+const EXALL = Object.keys(EXCAT).sort((x, y) => EXCAT[x].n.localeCompare(EXCAT[y].n));
+
+function exIds(sess) { return S.seance[sess.id] || (sess.ex || []).map((e) => e.id); }
+function exList(sess) { return exIds(sess).map((id) => EXCAT[id]).filter(Boolean).map(exActif); }
+function exSet(sess, ids) { S.seance[sess.id] = ids; save(); }
+function exDel(sess, id) { exSet(sess, exIds(sess).filter((x) => x !== id)); }
+function exAdd(sess, id) { if (exIds(sess).indexOf(id) < 0) exSet(sess, exIds(sess).concat([id])); }
+function exUp(sess, id) {
+  const l = exIds(sess).slice(), i = l.indexOf(id);
+  if (i > 0) { l[i] = l[i - 1]; l[i - 1] = id; exSet(sess, l); }
+}
+function exReset(sess) { delete S.seance[sess.id]; save(); }
 
 /* ═════════ PROPOSITIONS DE REPAS ═════════ */
 
