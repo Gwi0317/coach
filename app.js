@@ -4,7 +4,7 @@ const KEY = "coach.v2";
 const BLANK = {
   foodEdits:{}, foodAdd:{}, plan:null, charges:{}, logs:{}, runs:{}, weights:[],
   extras:{}, supps:{}, padel:{}, skipped:{}, apurna:{}, pw:{}, stock:{}, shop:{},
-  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, phase:"p1", offset:0,
+  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, perso:[], suppOff:{}, reel:{}, phase:"p1", offset:0,
 };
 let S = load();
 if (!S.pw) S.pw = {};
@@ -16,6 +16,9 @@ if (!S.dette) S.dette = [];
 if (!S.variante) S.variante = {};
 if (!S.refus) S.refus = [];
 if (!S.seance) S.seance = {};
+if (!S.perso) S.perso = [];
+if (!S.suppOff) S.suppOff = {};
+if (!S.reel) S.reel = {};
 let FOODS = {}, PLAN = {};
 
 function load() {
@@ -283,9 +286,14 @@ function supplements(day) {
   if (c.spi)   list.push({ id:"spi",   n:"Spiruline", d:"4 comprimés", w:"Midi" });
   if (c.ergy)  list.push({ id:"ergyp", n:"Ergyphilus Confort", d:"1 gélule", w:"À jeun le matin" });
   if (gym)     list.push({ id:"whey",  n:"Whey", d:"30 g", w:"Après la séance" });
-  if (ap)      list.push({ id:"apurna",n:"Boisson Apurna", d:"1 dose", w:"Pendant l'effort" });
+  if (ap)      list.push({ id:"apurna", n:"Apurna Hydratation", d:"1 dose",
+                          w:"Pendant l'effort, environ 500 ml par heure, à siroter" });
+  (S.perso || []).forEach((p) => {
+    if (p.jours === "seance" && !gym) return;
+    list.push({ id:p.id, n:p.n, d:p.d || "", w:p.w || "" });
+  });
   if (pw)      list.push({ id:"pwsupp", n:"Apurna Pre Workout", d:"1 dose de 20 g", w:"30 à 45 min avant la séance, dans 500 ml d'eau" });
-  return list;
+  return list.filter((x) => !S.suppOff[x.id]);
 }
 
 
@@ -341,8 +349,15 @@ function bilanSemaine() {
   let longue = 0;
   lastKeys(S.runs, 7).forEach((k) => { longue = Math.max(longue, S.runs[k].min); });
 
+  // ce que tu as vraiment mangé, relevé sur Foodvisor
+  const rk = lastKeys(S.reel, 7).filter((k) => S.reel[k] && S.reel[k].kcal);
+  const reel = rk.length ? {
+    n: rk.length,
+    kcal: Math.round(rk.reduce((s, k) => s + S.reel[k].kcal, 0) / rk.length),
+    p: Math.round(rk.reduce((s, k) => s + (S.reel[k].p || 0), 0) / rk.length),
+  } : null;
   return { seances, montes, bloques, horsPlan: Math.round(horsPlan / 7), faits, prevus, longue,
-           tr: trend(), dette: dettesEnAttente() };
+           tr: trend(), dette: dettesEnAttente(), reel: reel };
 }
 
 function nomExo(id) {

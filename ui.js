@@ -71,6 +71,9 @@ function viewBilan() {
   if (b.bloques.length) h += "<li>Bloqué depuis 3 séances : " + b.bloques.map(nomExo).join(", ").toLowerCase() +
        ". Baisse de 10 % la prochaine fois et remonte sur deux semaines, ou coupe une série pour finir la fourchette.</li>";
   if (b.faits) h += "<li>" + b.faits + " repas cochés sur " + b.prevus + " prévus.</li>";
+  if (b.reel) h += "<li>Relevé réel sur " + b.reel.n + " jour" + (b.reel.n > 1 ? "s" : "") + " : <b>" +
+       b.reel.kcal + " kcal</b> et " + b.reel.p + " g de protéines par jour, pour un plan à " +
+       baseTarget() + " kcal et 180 g." + (b.reel.kcal > baseTarget() + 120 ? " L'écart est là." : "") + "</li>";
   if (b.horsPlan > 120) h += "<li>En moyenne " + b.horsPlan + " kcal par jour hors plan. Si ça se répète, autant les intégrer au plan plutôt que de les subir.</li>";
   if (b.longue) h += "<li>Sortie la plus longue : " + b.longue + " min.</li>";
   if (b.tr) h += "<li>" + b.tr.msg + "</li>";
@@ -244,6 +247,12 @@ function viewRepas() {
     h += '<div class="hero nut"><small>Week-end</small><h1>Repas libres</h1><p>Chez tes parents. Mange à ta faim, ne compte pas : sur sept jours ça s\'équilibre.</p></div>';
     return h + viewSupps(d);
   }
+
+  const r = S.reel[dayStamp(d)] || {};
+  h += '<div class="card pad reel"><h3>Relevé Foodvisor</h3>' +
+       '<p class="small">Ce que tu as vraiment mangé, pas ce qui était prévu. C\'est ce chiffre qui pilote le bilan.</p>' +
+       '<div class="row"><span>Calories</span>' + stepper("rk", "", r.kcal || 0, " kcal", 10) + "</div>" +
+       '<div class="row"><span>Protéines</span>' + stepper("rp", "", r.p || 0, " g", 5) + "</div></div>";
 
   const props = propositions();
   if (props.length && !V.tmp.propsOff) {
@@ -453,6 +462,27 @@ function viewReglages() {
     h += '<div class="card">' + Object.keys(FOODS).sort((a, b) => FOODS[a].n.localeCompare(FOODS[b].n)).map((k) =>
       '<div class="line" data-act="editfood" data-id="' + k + '"><span class="grow">' + esc(FOODS[k].n) + "</span><i>" + FOODS[k].k + " kcal</i></div>").join("") + "</div>";
   }
+  h += "<h2>Mes compléments</h2><div class=\"card pad\">";
+  (S.perso || []).forEach((p) => {
+    h += '<div class="line"><span class="grow"><b>' + esc(p.n) + "</b><small>" +
+         esc([p.d, p.w].filter(Boolean).join(", ")) + (p.jours === "seance" ? ", jours de muscu seulement" : "") +
+         "</small></span>" + '<button class="del" data-act="delperso" data-id="' + p.id + '">✕</button></div>';
+  });
+  ["crea","whey","om3","vitd","mag","multi","spi","ergyp","gluta"].forEach((id) => {
+    const noms = { crea:"Créatine", whey:"Whey", om3:"Oméga-3", vitd:"Ergy D Plus", mag:"Ergymag",
+                   multi:"MultiCÉBÉ", spi:"Spiruline", ergyp:"Ergyphilus", gluta:"L-Glutamine (non pris)" };
+    const off = !!S.suppOff[id];
+    h += '<div class="line" data-act="supptoggle" data-id="' + id + '">' + checkbox(!off, "#1C6B4A") +
+         '<span class="grow ' + (off ? "done" : "") + '">' + noms[id] + "</span></div>";
+  });
+  h += '<p class="small">Décoche ce que tu ne prends plus : il disparaît de la checklist du jour.</p>';
+  h += '<input id="pn" placeholder="Nom, par exemple bêta-alanine" value="' + esc(V.tmp.pn || "") + '">' +
+       '<input id="pd" placeholder="Dose, par exemple 3 g" value="' + esc(V.tmp.pd || "") + '">' +
+       '<input id="pw2" placeholder="Moment, par exemple au goûter" value="' + esc(V.tmp.pw2 || "") + '">' +
+       '<div class="duo"><button class="tog' + (V.tmp.pj === "seance" ? " on" : "") + '" data-act="persojours" data-id="seance">Jours de muscu</button>' +
+       '<button class="tog' + (V.tmp.pj !== "seance" ? " on" : "") + '" data-act="persojours" data-id="tous">Tous les jours</button></div>' +
+       '<button class="cta" data-act="addperso">Ajouter à ma checklist</button></div>';
+
   h += "<h2>Ajouter par code-barres</h2><div class=\"card pad\">" +
        '<input id="bc" inputmode="numeric" placeholder="Tape les chiffres sous le code-barres" value="' + esc(V.tmp.bc || "") + '">' +
        '<button class="cta" data-act="scan">Chercher dans Open Food Facts</button>' +
@@ -559,6 +589,12 @@ document.addEventListener("click", (e) => {
     const [mi, vi] = id.split(".").map(Number), v = GOUTER_VARIANTS[vi];
     editPlan((p) => { p[d][mi].f = JSON.parse(JSON.stringify(v.f)); p[d][mi].t = "Goûter — " + v.n; });
   }
+  else if (a === "rk+" || a === "rk-" || a === "rp+" || a === "rp-") {
+    const k = dayStamp(d), f = a[1] === "k" ? "kcal" : "p", st = f === "kcal" ? 10 : 5;
+    S.reel[k] = S.reel[k] || { kcal:0, p:0 };
+    S.reel[k][f] = Math.max(0, (S.reel[k][f] || 0) + (a.endsWith("+") ? st : -st));
+    save();
+  }
   else if (a === "propok") { accepter(propositions()[+id]); }
   else if (a === "propno") { refuser(propositions()[+id]); }
   else if (a === "propoff") { V.tmp.propsOff = 1; }
@@ -630,6 +666,16 @@ document.addEventListener("click", (e) => {
     const cur = FOODS[k][f], nv = Math.max(0, Math.round((cur + (el.textContent === "+" ? st : -st)) * 10) / 10);
     S.foodEdits[k] = Object.assign({}, S.foodEdits[k], { [f]: nv }); rebuild(); save();
   }
+  else if (a === "supptoggle") { S.suppOff[id] = !S.suppOff[id]; save(); }
+  else if (a === "persojours") { V.tmp.pj = id; }
+  else if (a === "addperso") {
+    const n = (V.tmp.pn || "").trim();
+    if (n) {
+      S.perso.push({ id:"p" + Date.now(), n:n, d:(V.tmp.pd || "").trim(), w:(V.tmp.pw2 || "").trim(), jours:V.tmp.pj || "tous" });
+      save(); V.tmp.pn = ""; V.tmp.pd = ""; V.tmp.pw2 = "";
+    }
+  }
+  else if (a === "delperso") { S.perso = S.perso.filter((p) => p.id !== id); save(); }
   else if (a === "export") {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
     const u = URL.createObjectURL(blob), link = document.createElement("a");
@@ -645,6 +691,9 @@ document.addEventListener("input", (e) => {
   if (e.target.id === "q") { V.tmp.q = e.target.value; render(); }
   if (e.target.id === "bc") { V.tmp.bc = e.target.value; }
   if (e.target.id === "ma") { V.tmp.ma = e.target.value; }
+  if (e.target.id === "pn") { V.tmp.pn = e.target.value; }
+  if (e.target.id === "pd") { V.tmp.pd = e.target.value; }
+  if (e.target.id === "pw2") { V.tmp.pw2 = e.target.value; }
   if (e.target.id === "mq") { V.tmp.mq = e.target.value; }
 });
 
@@ -653,6 +702,10 @@ document.addEventListener("change", (e) => {
   const v = parseFloat(String(el.value).replace(",", ".")), fld = el.dataset.fld, id = el.dataset.id, d = V.day;
   if (isNaN(v) || v < 0) { render(); return; }
   if (fld === "q") { const [mi, fi] = id.split(".").map(Number); editPlan((p) => { p[d][mi].f[fi][1] = v; }); }
+  else if (fld === "rk" || fld === "rp") {
+    const k = dayStamp(d); S.reel[k] = S.reel[k] || { kcal:0, p:0 };
+    S.reel[k][fld === "rk" ? "kcal" : "p"] = Math.round(v); save();
+  }
   else if (fld === "skg") V.tmp.kgs[+id] = v;
   else if (fld === "rep") V.tmp.reps[+id] = Math.round(v);
   else if (fld === "pg") V.tmp.pg = v;
