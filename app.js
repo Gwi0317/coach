@@ -434,7 +434,8 @@ function exActif(ex) {
   const v = S.variante[ex.id];
   if (!v || v === ex.id || !ex.alt) return ex;
   const a = ex.alt.filter((x) => x.id === v)[0];
-  return a ? Object.assign({}, ex, { id:a.id, n:a.n, kg:a.kg, inc:a.inc || ex.inc, note:a.note || "", base:ex.id }) : ex;
+  return a ? Object.assign({}, ex, { id:a.id, n:a.n, kg:a.kg, inc:a.inc || ex.inc,
+                                    r:a.r || ex.r, s:a.s || ex.s, note:a.note || "", base:ex.id }) : ex;
 }
 /* Catalogue de tous les exercices, variantes comprises : on peut composer n'importe quelle séance */
 const EXCAT = {};
