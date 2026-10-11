@@ -4,7 +4,8 @@ const KEY = "coach.v2";
 const BLANK = {
   foodEdits:{}, foodAdd:{}, plan:null, charges:{}, logs:{}, runs:{}, weights:[],
   extras:{}, supps:{}, padel:{}, skipped:{}, apurna:{}, pw:{}, stock:{}, shop:{},
-  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, perso:[], suppOff:{}, reel:{}, phase:"p1", offset:0,
+  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, perso:[], suppOff:{}, reel:{},
+  sets:{}, phase:"p1", offset:0,
 };
 let S = load();
 if (!S.pw) S.pw = {};
@@ -19,6 +20,9 @@ if (!S.seance) S.seance = {};
 if (!S.perso) S.perso = [];
 if (!S.suppOff) S.suppOff = {};
 if (!S.reel) S.reel = {};
+if (!S.sets) S.sets = {};
+// on ne garde les séries cochées que 21 jours : c'est de l'état de séance, pas de l'historique
+Object.keys(S.sets).forEach((k) => { if (k.slice(0, 10) < daysAgo(21)) delete S.sets[k]; });
 let FOODS = {}, PLAN = {};
 
 function load() {
@@ -106,9 +110,10 @@ function progress(ex, reps, kgs) {
 
 const SESS = {};
 DAYS.forEach((d) => { SESS[DEFAULT_PROGRAM[d].id] = DEFAULT_PROGRAM[d]; });
+SESS[BONUS.id] = BONUS;   // pas attachée à un jour : on la pose où on veut
 const HORS = { padel:"Padel à la place", autre:"Autre sport", repos:"Repos", absent:"Absent" };
 const PRIO = ["jambes", "pec", "dos", "epaules", "force"];   // du moins sacrifiable au plus
-const CHOIX = ["pec","dos","jambes","epaules","force","runeasy","runlong","padel","autre","repos","absent"];
+const CHOIX = ["pec","dos","jambes","epaules","force","bonus","runeasy","runlong","padel","autre","repos","absent"];
 const nomSlot = (id) => (SESS[id] ? SESS[id].name : HORS[id] || "Repos");
 
 function defaultWeek() { const w = {}; DAYS.forEach((d) => { w[d] = DEFAULT_PROGRAM[d].id; }); return w; }
@@ -126,7 +131,7 @@ function sessionOf(day) { return SESS[week()[day]] || null; }
 function sessionFor(day) {
   const base = sessionOf(day);
   if (!base || base.kind !== "gym") return base;
-  if (!S.padel[day]) return base;
+  if (!S.padel[day] || base.easy) return base;
   return Object.assign({}, base, { ex: base.ex.filter((e) => e.tier <= 2).slice(0, 5), light: 1 });
 }
 
@@ -166,7 +171,10 @@ function appliquerDecalage(from, slotDuJour) {
   const r = simulerDecalage(from);
   r.w[from] = SESS[actuel] ? (slotDuJour || "padel") : actuel;   // on garde padel/absent/repos déjà posé
   S.week = r.w; S.deplace = null;
-  r.perdus.forEach((id) => { if (!S.dette.some((x) => x.id === id)) S.dette.push({ id, d: iso() }); });
+  r.perdus.forEach((id) => {
+    if (SESS[id] && SESS[id].nodebt) return;   // le bonus ne se rattrape pas
+    if (!S.dette.some((x) => x.id === id)) S.dette.push({ id, d: iso() });
+  });
   save();
   return r.perdus;
 }
@@ -206,6 +214,107 @@ function replanTextOld() {
          DEFAULT_PROGRAM[miss[1]].name.toLowerCase() + " samedi à la place de la course facile. La sortie longue du dimanche ne se déplace pas.";
 }
 
+/* ═════════ SÉRIES COCHÉES ═════════ */
+/* Où il en est dans la séance, série par série. Remis à zéro chaque jour
+   puisque c'est indexé sur la date. */
+function setsFaites(day, exId) { return ((S.sets[dayStamp(day)] || {})[exId]) || []; }
+function nbFaites(day, exId) { return setsFaites(day, exId).filter(Boolean).length; }
+function toggleSet(day, exId, k, n) {
+  const st = dayStamp(day);
+  if (!S.sets[st]) S.sets[st] = {};
+  const t = (S.sets[st][exId] || []).slice();
+  while (t.length < n) t.push(0);
+  t[k] = t[k] ? 0 : 1;
+  S.sets[st][exId] = t; save();
+  return !!t[k];
+}
+function marquerToutFait(day, exId, n) {
+  const st = dayStamp(day);
+  if (!S.sets[st]) S.sets[st] = {};
+  S.sets[st][exId] = new Array(n).fill(1); save();
+}
+/* Avancement de la séance entière, pour la ligne « où j'en suis ». */
+function avancement(day, sess) {
+  const l = exList(sess);
+  let sTot = 0, sFaites = 0, exFaits = 0;
+  l.forEach((ex) => {
+    sTot += ex.s;
+    const n = nbFaites(day, ex.id);
+    const loggue = (S.logs[dayStamp(day)] || {})[ex.id];
+    sFaites += loggue ? ex.s : n;
+    if (loggue || (n >= ex.s && ex.s > 0)) exFaits++;
+  });
+  return { exTot: l.length, exFaits, sTot, sFaites };
+}
+
+/* ═════════ CHRONOMÈTRE DE REPOS ═════════ */
+/* Il vit en dehors du DOM : l'app se redessine à chaque clic, le compte à
+   rebours ne doit pas repartir de zéro pour autant. */
+const CHRO = { fin:0, reste:0, dur:0, run:0, nom:"", tick:null, bip:0, ac:null };
+const mmss = (s) => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+
+function chronoReste() { return CHRO.run ? Math.max(0, Math.round((CHRO.fin - Date.now()) / 1000)) : CHRO.reste; }
+function chronoActif() { return !!(CHRO.run || CHRO.reste || CHRO.dur); }
+
+/* iOS n'autorise le son que si le contexte audio naît d'un geste : on l'arme
+   au démarrage, qui est toujours un appui. */
+function chronoArme() {
+  try {
+    const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+    if (!CHRO.ac) CHRO.ac = new C();
+    if (CHRO.ac.state === "suspended") CHRO.ac.resume();
+  } catch (e) {}
+}
+function chronoGo(sec, nom) {
+  chronoArme();
+  CHRO.dur = sec; CHRO.reste = sec; CHRO.fin = Date.now() + sec * 1000;
+  CHRO.run = 1; CHRO.bip = 0; CHRO.nom = nom || "Repos";
+  chronoBoucle(); chronoPeint();
+}
+function chronoPause() {
+  if (CHRO.run) { CHRO.reste = chronoReste(); CHRO.run = 0; }
+  else if (CHRO.reste > 0) { CHRO.fin = Date.now() + CHRO.reste * 1000; CHRO.run = 1; chronoBoucle(); }
+  chronoPeint();
+}
+function chronoDecale(sec) {
+  if (!CHRO.dur) return;
+  if (CHRO.run) { CHRO.fin = Math.max(Date.now(), CHRO.fin + sec * 1000); CHRO.reste = chronoReste(); }
+  else CHRO.reste = Math.max(0, CHRO.reste + sec);
+  if (chronoReste() > 0) { CHRO.bip = 0; if (!CHRO.run && CHRO.reste) { CHRO.fin = Date.now() + CHRO.reste * 1000; CHRO.run = 1; } chronoBoucle(); }
+  chronoPeint();
+}
+function chronoStop() {
+  CHRO.run = 0; CHRO.reste = 0; CHRO.dur = 0; CHRO.bip = 0; CHRO.nom = "";
+  if (CHRO.tick) { clearInterval(CHRO.tick); CHRO.tick = null; }
+  chronoPeint();
+}
+function chronoBoucle() {
+  if (CHRO.tick) return;
+  CHRO.tick = setInterval(() => {
+    if (CHRO.run && chronoReste() <= 0) {
+      CHRO.run = 0; CHRO.reste = 0;
+      if (!CHRO.bip) { CHRO.bip = 1; chronoSonne(); }
+    }
+    chronoPeint();
+    if (!CHRO.run) { clearInterval(CHRO.tick); CHRO.tick = null; }
+  }, 250);
+}
+function chronoSonne() {
+  try { if (navigator.vibrate) navigator.vibrate([130, 90, 130, 90, 240]); } catch (e) {}
+  try {
+    const c = CHRO.ac; if (!c) return;
+    [0, 0.2, 0.4].forEach((t) => {
+      const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + t;
+      o.type = "sine"; o.frequency.value = 880;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.3, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.15);
+      o.connect(g); g.connect(c.destination);
+      o.start(t0); o.stop(t0 + 0.17);
+    });
+  } catch (e) {}
+}
+
 /* ═════════ POIDS → AJUSTEMENT ═════════ */
 
 function trend() {
@@ -213,9 +322,19 @@ function trend() {
   if (w.length < 6) return null;
   const a1 = w.slice(-3).reduce((a, b) => a + b.kg, 0) / 3;
   const a0 = w.slice(-6, -3).reduce((a, b) => a + b.kg, 0) / 3;
-  const delta = a1 - a0, gap = delta - PHASES[S.phase].gain;
-  if (gap < -0.15) return { delta, gap, adj: 150, msg: "Tu es " + fr(Math.abs(gap)) + " kg sous la trajectoire. Il faut 150 kcal de plus par jour." };
-  if (gap > 0.15) return { delta, gap, adj: -200, msg: "Tu montes " + fr(gap) + " kg trop vite. Il faut 200 kcal de moins par jour." };
+  const delta = a1 - a0, cible = PHASES[S.phase].gain, gap = delta - cible;
+  const seche = cible < 0;
+
+  // trop bas par rapport à la cible : en sèche ça veut dire que tu descends trop vite
+  if (gap < -0.15) return { delta, gap, adj: 150, msg: seche
+      ? "Tu perds " + fr(Math.abs(gap)) + " kg/semaine de trop vite. Remonte de 150 kcal : au-delà de 0,5 kg/semaine tu perds du muscle avec le gras."
+      : "Tu es " + fr(Math.abs(gap)) + " kg sous la trajectoire. Il faut 150 kcal de plus par jour." };
+
+  // trop haut : en sèche ça veut dire que la perte s'est arrêtée
+  if (gap > 0.15) return { delta, gap, adj: -150, msg: seche
+      ? "La perte a ralenti de " + fr(gap) + " kg/semaine. Descends de 150 kcal, c'est le palier suivant."
+      : "Tu montes " + fr(gap) + " kg trop vite. Il faut 150 kcal de moins par jour." };
+
   return { delta, gap, adj: 0, msg: "Tu es sur la trajectoire. Ne touche à rien cette semaine." };
 }
 
@@ -244,7 +363,14 @@ function alignPlan() {
     });
   });
 }
-function applyAdjust(adj) { S.offset = (S.offset || 0) + adj; alignPlan(); }
+function applyAdjust(adj) {
+  const P = PHASES[S.phase], vise = baseTarget() + adj;
+  // plancher de sécurité : on ne descend pas en dessous du minimum de la phase
+  if (P.min && vise < P.min) S.offset = P.min - P.kcal;
+  else S.offset = (S.offset || 0) + adj;
+  alignPlan();
+}
+function auPlancher() { const P = PHASES[S.phase]; return !!(P.min && baseTarget() <= P.min); }
 
 /* ═════════ COURSES (calculées depuis le plan) ═════════ */
 
@@ -361,6 +487,7 @@ function bilanSemaine() {
 }
 
 function nomExo(id) {
+  if (EXCAT[id]) return EXCAT[id].n;
   let n = id;
   Object.keys(DEFAULT_PROGRAM).forEach((d) => {
     const s = DEFAULT_PROGRAM[d];
@@ -445,6 +572,7 @@ DAYS.forEach((d) => (DEFAULT_PROGRAM[d].ex || []).forEach((e) => {
     EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc, note:v.note || "", alt:null });
   });
 }));
+(BONUS.ex || []).forEach((e) => { EXCAT[e.id] = e; });
 EXTRAS.forEach((e) => { EXCAT[e.id] = e; });
 const EXALL = Object.keys(EXCAT).sort((x, y) => EXCAT[x].n.localeCompare(EXCAT[y].n));
 

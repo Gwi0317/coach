@@ -57,7 +57,10 @@ h2{font-size:13px;margin:22px 0 8px}
 .tog{flex:1;padding:10px;border:1px solid var(--line);border-radius:3px;background:var(--card);color:var(--ink2);font-size:12.5px;font-weight:600}
 .tog.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .tog.danger.on{background:var(--gym);border-color:var(--gym)}
-.phases{margin:14px 0 0}
+.phases{margin:14px 0 0;gap:6px}
+.ph{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 2px;line-height:1.25}
+.ph b{font-size:12px}
+.ph i{font-size:10.5px;opacity:.7;font-weight:500}
 .tog.full{display:block;width:100%;margin-bottom:16px}
 .duo.wrap{flex-wrap:wrap;margin:6px 0 0}
 .duo.wrap .tog{flex:1 1 40%;padding:8px;font-size:12px}
@@ -166,15 +169,41 @@ font-size:12px;color:#fff;flex:0 0 auto}
 .replan h3{font-size:12.5px;margin:0 0 6px}
 .replan p{font-size:12.5px;color:var(--ink2);margin:0}
 
+/* case à cocher par série, avancement, chronomètre */
+.setcb{width:26px;height:26px;border-radius:4px;border:1.5px solid var(--line);background:var(--card);
+color:#fff;font-size:14px;line-height:1;flex:0 0 auto}
+.setcb.on{background:var(--nut);border-color:var(--nut)}
+.set.fait .step{opacity:.45}
+.set.fait .sn{color:var(--nut);font-weight:700}
+.kg small.enc{color:var(--mut);font-size:10.5px;font-weight:600}
+.avance{font-size:12.5px;color:var(--nut);margin:10px 0 0}
+.avance b{font-size:12.5px}
+.chpre{display:flex;flex-wrap:wrap;gap:6px}
+.chpre .tog{flex:1 1 20%;padding:12px 2px;font-size:13px;font-variant-numeric:tabular-nums}
+.chlance{flex:0 0 auto;padding:8px 12px;font-size:12px;margin-left:8px}
+#chrono{display:none}
+#chrono.on{display:flex;align-items:center;gap:10px;position:fixed;left:0;right:0;z-index:10;
+bottom:calc(53px + env(safe-area-inset-bottom));padding:10px 14px;
+background:var(--ink);color:#fff;border-top:1px solid var(--ink)}
+#chrono b{font-size:21px;font-variant-numeric:tabular-nums;min-width:62px}
+#chrono span{flex:1;font-size:12px;opacity:.75;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#chrono button{color:#fff;font-size:12px;font-weight:650;padding:7px 10px;border:1px solid rgba(255,255,255,.3);border-radius:3px}
+#chrono.pause{background:var(--warn);border-top-color:var(--warn)}
+#chrono.fini{background:var(--nut);border-top-color:var(--nut)}
+#chrono.fini b{animation:cl .8s steps(1) infinite}
+@keyframes cl{50%{opacity:.35}}
+body.ch{padding-bottom:calc(126px + env(safe-area-inset-bottom))}
+
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);
 padding:8px 0 calc(10px + env(safe-area-inset-bottom));z-index:9}
-nav button{flex:1;font-size:11px;color:var(--mut);padding:4px 0}
+nav button{flex:1;font-size:10.5px;color:var(--mut);padding:4px 0;white-space:nowrap}
 nav button.on{color:var(--ink);font-weight:650}
 </style>
 </head>
 <body>
 <header id="head"></header>
 <main id="main"></main>
+<div id="chrono"></div>
 <nav id="nav"></nav>
 <script src="data.js"></script>
 <script src="app.js"></script>

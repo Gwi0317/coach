@@ -133,7 +133,8 @@ function viewSeance() {
          "<h1>" + (sport ? "Du sport à la place de la séance" : id === "absent" ? "Journée hors programme" : "Repos") + "</h1>" +
          "<p>" + (sport
            ? "Ça compte comme séance. Ne rajoute pas de muscu par-dessus si tu étais cuit : c'est la récupération qui fait progresser."
-           : "Rien de prévu. Si tu veux caler une séance ici, ouvre Ma semaine juste en dessous.") + "</p></div>";
+           : "Rien de prévu. Si tu as de l\'envie mais pas de la récupération, la séance bonus est faite pour ça : arrière d\'épaule, mollets, grip, mobilité, rien de lourd.") + "</p></div>";
+    if (!sport && id !== "absent") h += '<button class="cta gym" data-act="setslot" data-id="' + d + '.bonus">Faire la séance bonus</button>';
     h += '<button class="tog full" data-act="sem">' + (V.tmp.sem ? "Fermer" : "Ouvrir") + " Ma semaine</button>";
     return h;
   }
@@ -163,14 +164,20 @@ function viewSeance() {
       ? logged.pace + "/km, trop rapide pour de la zone 2. Prochaine sortie : même durée, 30 à 40 secondes plus lent au kilomètre."
       : logged.pace + "/km, pile dans la zone. La prochaine sortie longue passe à " + Math.min(presc + 5, 85) + " min.") + "</p>";
     h += "</div>";
+    h += '<p class="note">Course déjà faite et tu veux bouger quand même ? La séance bonus est complémentaire : arrière d\'épaule, mollets, grip, mobilité. Elle remplace la course sur ce jour-là.</p>' + '<button class="cta gym" data-act="setslot" data-id="' + d + '.bonus">Faire la séance bonus</button>';
     return h;
   }
 
   const log = S.logs[dayStamp(d)] || {};
   h += '<div class="hero gym"><small>' + sess.tag + "</small><h1>" + sess.name + "</h1><p>" +
        (sess.light
-         ? sess.ex.length + " exercices au lieu de " + DEFAULT_PROGRAM[d].ex.length + " : padel dans la journée, on garde les fondamentaux et on coupe les finisseurs."
-         : sess.ex.length + " exercices · " + sess.ex.reduce((a, e) => a + e.s, 0) + " séries") + "</p></div>";
+         ? sess.ex.length + " exercices au lieu de " + ((sessionOf(d) || {}).ex || []).length + " : padel dans la journée, on garde les fondamentaux et on coupe les finisseurs."
+         : sess.ex.length + " exercices · " + sess.ex.reduce((a, e) => a + e.s, 0) + " séries") + "</p>" +
+       (() => { const v = avancement(d, sess);
+         if (!v.sFaites) return "";
+         return '<p class="avance"><b>' + v.exFaits + "/" + v.exTot + " exercices</b> · " +
+                v.sFaites + "/" + v.sTot + " séries" +
+                (v.sFaites >= v.sTot ? " — séance terminée." : "") + "</p>"; })() + "</div>";
 
   h += '<div class="duo">' +
        '<button class="tog' + (S.padel[d] ? " on" : "") + '" data-act="padel">' + (S.padel[d] ? "✓ " : "") + "Padel en plus</button>" +
@@ -188,14 +195,15 @@ function viewSeance() {
   if (edit) h += '<p class="small">Retire, réordonne, ajoute. Chaque exercice garde sa charge et son historique.</p>';
 
   exList(sess).forEach((ex, i) => {
-    const kg = chargeOf(ex), done = log[ex.id], open = V.openEx === ex.id;
+    const kg = chargeOf(ex), done = log[ex.id], open = V.openEx === ex.id, nf = nbFaites(d, ex.id);
     h += '<div class="card exo' + (open ? " open" : "") + '"><div class="exhead" data-act="openex" data-id="' + ex.id + '">' +
          '<span class="idx">' + (i + 1) + "</span><div class=\"grow\"><b>" + esc(ex.n) + "</b><small>" +
          ex.s + " × " + (ex.r[0] === ex.r[1] ? ex.r[0] : ex.r[0] + "-" + ex.r[1]) +
          (ex.rest ? " · pause " + (ex.rest >= 60 ? (ex.rest % 60 ? Math.floor(ex.rest / 60) + " min " + (ex.rest % 60) : Math.floor(ex.rest / 60) + " min") : ex.rest + " s") : "") +
          (ex.note ? " · " + esc(ex.note) : "") + "</small></div>" +
          '<div class="kg' + (done ? " ok" : "") + '">' + (ex.bw && !kg ? "PDC" : fr(kg) + "<i>kg</i>") +
-         (done ? "<small>" + resume(done) + "</small>" : "") + "</div>" +
+         (done ? "<small>" + resume(done) + "</small>"
+               : nf ? '<small class="' + (nf >= ex.s ? "ok" : "enc") + '">' + nf + "/" + ex.s + " séries</small>" : "") + "</div>" +
          (edit ? '<span class="exedit"><button data-act="exup" data-id="' + ex.id + '">↑</button>' +
                  '<button data-act="exdel" data-id="' + ex.id + '">✕</button></span>' : "") +
          "</div>" + (edit ? "" : objLine(ex, kg, done));
@@ -212,14 +220,19 @@ function viewSeance() {
                v.n + "</button>").join("") + "</div></div>";
       }
       h += '<small>Série par série : charge et reps</small><div class="sets">';
+      const faites = setsFaites(d, ex.id);
       reps.forEach((r, k) => {
-        h += '<div class="set"><span class="sn">' + (k + 1) + "</span>" +
+        const f = !!faites[k];
+        h += '<div class="set' + (f ? " fait" : "") + '">' +
+             '<button class="setcb' + (f ? " on" : "") + '" data-act="setdone" data-id="' + k + '">' + (f ? "\u2713" : "") + "</button>" +
+             '<span class="sn">' + (k + 1) + "</span>" +
              (charge ? stepper("skg", k, kgs[k], " kg", ex.inc || 0.5) : '<span class="pdc">poids du corps</span>') +
              '<span class="x">\u00d7</span>' + stepper("rep", k, r, "", 1) + "</div>";
       });
       h += "</div>";
       if (charge) h += '<button class="ghost" data-act="skgall">Mettre ' + fr(kgs[0]) + " kg sur toutes les séries</button>";
-      h += '<button class="cta gym" data-act="logex" data-id="' + ex.id + '">Valider l\'exercice</button>';
+      h += '<button class="cta gym" data-act="logex" data-id="' + ex.id + '">Valider l\'exercice' +
+           (nf && nf < ex.s ? " (" + nf + "/" + ex.s + " cochées)" : "") + "</button>";
       if (done) h += '<p class="small">' + esc(done.msg) + " → prochaine fois <b>" + fr(done.next) + " kg</b></p>";
       h += "</div>";
     }
@@ -277,6 +290,8 @@ function viewRepas() {
   h += "</div>";
 
   if (!tg) h += '<p class="note">Vendredi soir tu manges chez tes parents : le dîner n\'est pas compté ici.</p>';
+  if (PHASES[S.phase].gain < 0 && t[1] < PHASES[S.phase].prot - 10)
+    h += '<p class="note warn">' + Math.round(PHASES[S.phase].prot - t[1]) + " g de protéines sous la cible. En déficit, c'est elles qui protègent ton muscle : complète avec du skyr ou du blanc de poulet, pas avec des glucides.</p>";
   const gap = tg ? tg - t[0] : 0;
   if (Math.abs(gap) > 120) h += '<div class="card pad"><p class="small">' + (gap > 0
       ? "Il manque " + Math.round(gap) + " kcal sur la journée."
@@ -357,7 +372,7 @@ function viewPoids() {
   const kg = V.tmp.w != null ? V.tmp.w : (V.tmp.w = w.length ? w[w.length - 1].kg : 81);
   let h = '<div class="hero wgt"><small>' + P.n + " · " + P.d + "</small><h1>" + P.goal + "</h1>" +
           '<div class="duo phases">' +
-          Object.keys(PHASES).map((k) => '<button class="tog' + (S.phase === k ? " on" : "") + '" data-act="phase" data-id="' + k + '">' + PHASES[k].n + " · " + PHASES[k].kcal + " kcal</button>").join("") +
+          Object.keys(PHASES).map((k) => '<button class="tog ph' + (S.phase === k ? " on" : "") + '" data-act="phase" data-id="' + k + '"><b>' + PHASES[k].n + "</b><i>" + PHASES[k].kcal + " kcal</i></button>").join("") +
           "</div></div>";
 
   h += "<h2>" + (weighDay && !doneToday ? "Pèse-toi ce matin" : "Pesée") + '</h2><div class="card pad">';
@@ -376,8 +391,12 @@ function viewPoids() {
   const tr = trend();
   if (tr) {
     h += '<h2>Ajustement</h2><div class="card pad"><p>' + tr.msg + "</p>";
-    if (tr.adj) h += '<button class="cta wgt" data-act="applyadj" data-id="' + tr.adj + '">Réécrire mes portions (' + (tr.adj > 0 ? "+" : "") + tr.adj + " kcal)</button>" +
-                     '<p class="small">Les féculents de la semaine sont recalculés, et la liste de courses suit.</p>';
+    if (tr.adj < 0 && auPlancher()) {
+      h += '<p class="small warn">Tu es au plancher de ' + PHASES[S.phase].min + " kcal. Ne descends pas plus bas : à ce stade, c'est la dépense qu'on augmente (une marche de 30 min par jour), pas l'assiette qu'on coupe.</p>";
+    } else if (tr.adj) {
+      h += '<button class="cta wgt" data-act="applyadj" data-id="' + tr.adj + '">Réécrire mes portions (' + (tr.adj > 0 ? "+" : "") + tr.adj + " kcal)</button>" +
+           '<p class="small">Les féculents de la semaine sont recalculés, et la liste de courses suit.</p>';
+    }
     h += "</div>";
   } else {
     h += '<p class="note">Il faut six pesées, soit deux semaines, avant de calculer une tendance fiable. Une pesée isolée ne dit rien : sel, eau et digestion font bouger le chiffre d\'un kilo dans la journée.</p>';
@@ -495,9 +514,64 @@ function viewReglages() {
   return h;
 }
 
+/* ═════════ CHRONO ═════════ */
+
+const CHPRE = [30, 45, 60, 75, 90, 120, 150, 180];
+const secTxt = (s) => (s >= 60 ? (s % 60 ? Math.floor(s / 60) + " min " + (s % 60) + " s" : Math.floor(s / 60) + " min") : s + " s");
+
+function viewChrono() {
+  const d = V.day, sess = sessionFor(d), r = chronoReste(), actif = chronoActif();
+  let h = '<div class="hero wgt"><small>' + (actif ? esc(CHRO.nom || "Repos") : "Temps de repos") + "</small>" +
+          '<h1 id="chbig">' + mmss(r) + "</h1><p>" +
+          (actif
+            ? (CHRO.run ? "Il tourne même si tu changes d'onglet. Vibration et bip à la fin."
+                        : r > 0 ? "En pause." : "Repos fini : série suivante.")
+            : "Il se lance tout seul quand tu coches une série. Ou choisis une durée ici.") + "</p></div>";
+
+  if (actif) h += '<div class="duo">' +
+    '<button class="tog" data-act="ch.moins">− 15 s</button>' +
+    '<button class="tog" data-act="ch.pause">' + (CHRO.run ? "Pause" : "Reprendre") + "</button>" +
+    '<button class="tog" data-act="ch.plus">+ 15 s</button></div>' +
+    '<button class="ghost danger" data-act="ch.stop">Arrêter</button>';
+
+  h += '<h2>Départ rapide</h2><div class="card pad"><div class="chpre">' +
+       CHPRE.map((s) => '<button class="tog' + (actif && CHRO.dur === s ? " on" : "") +
+         '" data-act="ch.go" data-id="' + s + '">' + mmss(s) + "</button>").join("") + "</div></div>";
+
+  if (sess && sess.kind === "gym") {
+    const l = exList(sess);
+    h += "<h2>Les pauses de ta séance du jour</h2><div class=\"card\">";
+    l.forEach((ex) => {
+      const nf = nbFaites(d, ex.id);
+      h += '<div class="line"><div class="grow"><b>' + esc(ex.n) + "</b><small>" +
+           ex.s + " séries" + (nf ? " · " + nf + " cochée" + (nf > 1 ? "s" : "") : "") + "</small></div>" +
+           '<button class="tog chlance" data-act="ch.ex" data-id="' + ex.id + '">' + secTxt(ex.rest || 90) + "</button></div>";
+    });
+    h += "</div><p class=\"small\">Ces durées viennent du programme. Les gros mouvements demandent 2 à 3 min : si tu coupes à 1 min sur le bench ou le squat, tu perds des reps et tu crois que tu stagnes.</p>";
+  } else {
+    h += '<p class="note">Pas de séance de muscu aujourd\'hui. Les durées au-dessus restent dispo pour du gainage ou du fractionné.</p>';
+  }
+  return h;
+}
+
+/* La barre flottante : elle survit aux redessins, donc elle se peint à part. */
+function chronoPeint() {
+  const el = $("#chrono"); if (!el) return;
+  const r = chronoReste(), actif = chronoActif();
+  document.body.classList.toggle("ch", actif);
+  const big = $("#chbig"); if (big) big.textContent = mmss(r);
+  if (!actif) { el.className = ""; el.innerHTML = ""; return; }
+  const fini = r <= 0 && !CHRO.run;
+  el.className = "on" + (fini ? " fini" : CHRO.run ? "" : " pause");
+  el.innerHTML = '<b>' + mmss(r) + "</b>" +
+    '<span>' + (fini ? "Série suivante" : CHRO.run ? esc(CHRO.nom || "Repos") : "En pause") + "</span>" +
+    (fini ? "" : '<button data-act="ch.plus">+15</button><button data-act="ch.pause">' + (CHRO.run ? "❙❙" : "▶") + "</button>") +
+    '<button data-act="ch.stop">✕</button>';
+}
+
 /* ═════════ RENDU ═════════ */
 
-const TABS = [["seance","Séance"],["repas","Repas"],["poids","Poids"],["courses","Courses"],["reglages","Réglages"]];
+const TABS = [["seance","Séance"],["chrono","Chrono"],["repas","Repas"],["poids","Poids"],["courses","Courses"],["reglages","Réglages"]];
 
 function render() {
   const d = V.day, sess = DEFAULT_PROGRAM[d];
@@ -508,11 +582,13 @@ function render() {
       '<button class="' + (x === V.day ? "on " : "") + (S.skipped[x] ? "miss" : "") + '" data-act="day" data-id="' + x + '">' + x + "</button>").join("") + "</div>";
   $("#main").innerHTML =
     V.tab === "seance" ? viewSeance() :
+    V.tab === "chrono" ? viewChrono() :
     V.tab === "repas" ? viewRepas() :
     V.tab === "poids" ? viewPoids() :
     V.tab === "courses" ? viewCourses() : viewReglages();
   $("#nav").innerHTML = TABS.map(([id, n]) =>
     '<button class="' + (V.tab === id ? "on" : "") + '" data-act="tab" data-id="' + id + '">' + n + "</button>").join("");
+  chronoPeint();
   const q = $("#q"); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
   const ma = $("#ma"); if (ma && !ma.value) ma.focus();
   const bc = $("#bc"); if (bc && V.tmp.bcfocus) { bc.focus(); bc.setSelectionRange(bc.value.length, bc.value.length); }
@@ -547,6 +623,18 @@ document.addEventListener("click", (e) => {
   }
   else if (a === "oublidette") { S.dette = S.dette.filter((x) => x.id !== id); save(); V.tmp.semMsg = "Séance abandonnée pour cette fois."; }
   else if (a === "openex") { V.openEx = V.openEx === id ? null : id; V.tmp = {}; }
+  else if (a === "setdone" && ex) {
+    const k = +id, on = toggleSet(d, ex.id, k, ex.s);
+    // cocher une série lance la pause, sauf sur la dernière : il n'y a plus rien à attendre
+    if (on && ex.rest && nbFaites(d, ex.id) < ex.s) chronoGo(ex.rest, "Repos · " + ex.n);
+    else if (on) chronoStop();
+  }
+  else if (a === "ch.go") chronoGo(+id, "Repos");
+  else if (a === "ch.ex") { const e2 = exList(sess).filter((x) => x.id === id)[0]; if (e2) chronoGo(e2.rest || 90, "Repos · " + e2.n); }
+  else if (a === "ch.pause") chronoPause();
+  else if (a === "ch.plus") chronoDecale(15);
+  else if (a === "ch.moins") chronoDecale(-15);
+  else if (a === "ch.stop") chronoStop();
   else if (a === "rep-" || a === "rep+") { const i = +id; V.tmp.reps[i] = Math.max(0, V.tmp.reps[i] + (a === "rep+" ? 1 : -1)); }
   else if (a === "skg+" || a === "skg-") {
     const i = +id, s = ex && ex.inc ? ex.inc : 0.5;
@@ -569,6 +657,7 @@ document.addEventListener("click", (e) => {
     S.logs[dayStamp(d)] = Object.assign({}, S.logs[dayStamp(d)], {
       [ex.id]: { reps: V.tmp.reps.slice(), kgs: V.tmp.kgs.slice(), kg: Math.max.apply(null, V.tmp.kgs), next: res.kg, msg: res.msg },
     });
+    marquerToutFait(d, ex.id, ex.s);
     save(); V.openEx = null; V.tmp = {};
   }
   else if (a === "run.min+" || a === "run.min-") V.tmp.run.min = Math.max(5, V.tmp.run.min + (a.endsWith("+") ? 5 : -5));

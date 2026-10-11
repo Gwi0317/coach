@@ -136,13 +136,13 @@ const DEFAULT_PROGRAM = {
     { id:"dim",       n:"Développé incliné Smith machine", s:3, r:[8,10], kg:50, inc:2.5, rest:120, tier:1,
       note:"1,25 kg de chaque côté pour monter",
       alt:[{ id:"dim_h", n:"Développé incliné haltères", kg:26, inc:2, r:[8,10] }] },
-    { id:"dips",      n:"Dips lestés",                 s:3, r:[6,8],   kg:10,  inc:2.5, rest:120, tier:1,
+    { id:"dips",      n:"Dips lestés",                 s:3, r:[6,8],   kg:17.5, inc:2.5, rest:120, tier:1,
       alt:[{ id:"dips_m", n:"Dips machine assistée", kg:20, inc:5 }] },
     { id:"poulieuni", n:"Poulie unilatérale pec",      s:3, r:[10,12], kg:12,  inc:2,   rest:75,  tier:3,
       alt:[{ id:"pecdeck", n:"Pec deck", kg:45, inc:5 }] },
-    { id:"tricorde",  n:"Triceps corde poulie basse",  s:3, r:[10,12], kg:15,  inc:2.5, rest:75,  tier:2,
+    { id:"tricorde",  n:"Triceps corde poulie basse",  s:3, r:[10,12], kg:17,  inc:2.5, rest:75,  tier:2,
       alt:[{ id:"tribarre", n:"Triceps barre poulie", kg:25, inc:2.5 }] },
-    { id:"triext",    n:"Extension au-dessus de la tête", s:3, r:[8,10], kg:12, inc:2, rest:75, tier:3,
+    { id:"triext",    n:"Extension au-dessus de la tête", s:3, r:[8,10], kg:14, inc:2, rest:75, tier:3,
       note:"Tu es passé de 7/8/7 à 10/9/8 : 12 kg est la bonne charge",
       alt:[{ id:"triext_p", n:"Extension poulie au-dessus de la tête", kg:15, inc:2.5 }] },
   ]},
@@ -158,7 +158,7 @@ const DEFAULT_PROGRAM = {
     { id:"curlbar",  n:"Curl barre",                 s:4, r:[8,12],  kg:22.5, inc:2.5, rest:90, tier:2,
       note:"25 kg te fait tomber à 7 reps sur les 2 dernières : tiens 22,5",
       alt:[{ id:"curlez", n:"Curl barre EZ", kg:22.5, inc:2.5 }, { id:"curlhalt", n:"Curl haltères", kg:12, inc:2 }] },
-    { id:"curlinc",  n:"Curl banc incliné",          s:3, r:[8,12],  kg:9,  inc:2,   rest:75,  tier:3 },
+    { id:"curlinc",  n:"Curl banc incliné",          s:3, r:[8,12],  kg:7,  inc:2,   rest:75,  tier:3 },
     { id:"curlmart", n:"Curl marteau",               s:3, r:[10,12], kg:8,  inc:2,   rest:75,  tier:3 },
   ]},
   Mer: { id:"jambes", name:"Jambes", kind:"gym", tag:"Ne la saute pas", ex:[
@@ -172,7 +172,7 @@ const DEFAULT_PROGRAM = {
       alt:[{ id:"legcurl_a", n:"Leg curl allongé", kg:30, inc:5 }] },
     { id:"hip",     n:"Hip thrust",                       s:3, r:[10,12], kg:35,  inc:5,  rest:90,  tier:2,
       alt:[{ id:"hip_b", n:"Hip thrust barre", kg:60, inc:10 }] },
-    { id:"mollets", n:"Mollets debout",                   s:4, r:[12,15], kg:140, inc:10, rest:60,  tier:3,
+    { id:"mollets", n:"Mollets debout",                   s:3, r:[12,15], kg:140, inc:10, rest:60,  tier:3,
       note:"Pause 1 s en bas, 1 s en haut",
       alt:[{ id:"mollets_a", n:"Mollets assis", kg:60, inc:5 }] },
   ]},
@@ -187,34 +187,55 @@ const DEFAULT_PROGRAM = {
       alt:[{ id:"arriere_h", n:"Oiseau haltères", kg:8, inc:2, r:[10,12] }] },
     { id:"elevfront", n:"Élévation frontale",          s:3, r:[8,12],  kg:8,  inc:2,   rest:60,  tier:3,
       note:"Fourchette large : 2 kg d'écart aux haltères, c'est 25 % de charge" },
-    { id:"shrugs",    n:"Shrugs",                      s:3, r:[12,15], kg:30, inc:5,   rest:75,  tier:2 },
+    { id:"shrugs",    n:"Shrugs",                      s:3, r:[12,15], kg:35, inc:5,   rest:75,  tier:2 },
     { id:"levjambes", n:"Lever de jambes suspendu",    s:3, r:[6,10],  kg:0,  inc:0,   rest:60,  bw:1, tier:2 },
     { id:"crunch",    n:"Crunch poulie",               s:3, r:[12,15], kg:65, inc:5,   rest:60,  tier:3 },
-    { id:"obliques",  n:"Obliques haltère",            s:3, r:[12,15], kg:16, inc:2,   rest:60,  tier:3 },
+    { id:"obliques",  n:"Obliques haltère",            s:3, r:[12,15], kg:14, inc:2,   rest:60,  tier:3 },
   ]},
   Ven: { id:"force", name:"Force : tractions et bench", kind:"gym", tag:"Variable d'ajustement", alt:1, ex:[
-    { id:"sdt",     n:"Soulevé de terre",        s:4, r:[3,5], kg:115, inc:2.5, rest:180, tier:1,
+    { id:"sdt",     n:"Soulevé de terre",        s:4, r:[5,5], kg:115, inc:2.5, rest:180, tier:1,
       note:"+15 kg en 2 semaines, c'est assez : 2,5 kg par semaine maintenant" },
-    { id:"dcbar",   n:"Développé couché barre",  s:4, r:[3,5], kg:82.5,  inc:2.5, rest:180, tier:1,
+    { id:"dcbar",   n:"Développé couché barre",  s:4, r:[5,5], kg:80,  inc:2.5, rest:180, tier:1,
+      note:"4×5 strict : tant que les 4 séries ne font pas 5, la charge ne bouge pas",
       alt:[{ id:"dcbar_p", n:"Développé couché pause 1 s", kg:70, inc:2.5 }] },
-    { id:"tract_f", n:"Tractions lestées",       s:4, r:[4,6], kg:7.5, inc:2.5, rest:150, tier:1,
+    { id:"tract_f", n:"Tractions lestées",       s:4, r:[5,6], kg:7.5, inc:2.5, rest:150, tier:1,
       note:"+10 kg t'a coûté la 4e série : reviens à 7,5 et boucle les 4",
       alt:[{ id:"tract_f0", n:"Tractions poids du corps", kg:0, inc:2.5 }] },
     { id:"dips_f",  n:"Dips lestés lourds",      s:4, r:[4,6], kg:17.5, inc:2.5, rest:150, tier:1 },
     { id:"fentes",  n:"Fentes haltères",         s:3, r:[8,10], kg:14, inc:2,   rest:90,  tier:2,
       note:"Quadriceps unilatéral, transfert direct vers le sled de l'Hyrox" },
     { id:"roue",    n:"Roue abdominale",         s:3, r:[5,8], kg:0,   inc:0,   rest:75,  bw:1, tier:3 },
-    { id:"gainage", n:"Gainage planche",         s:3, r:[30,60], kg:0, inc:0,   rest:60,  bw:1, tier:3, note:"Compte des secondes au lieu des reps" },
+    { id:"gainage", n:"Gainage planche",         s:3, r:[45,90], kg:0, inc:0,   rest:60,  bw:1, tier:3, note:"En secondes. Tu plafonnais à 60, la cible monte à 90" },
   ]},
   Sam: { id:"runeasy", name:"Course facile", kind:"run", tag:"Optionnel", run:{ min:30, pace:"6:15–6:45", hr:"moins de 145", label:"Récupération active" } },
   Dim: { id:"runlong", name:"Sortie longue", kind:"run", tag:"La course qui compte", run:{ min:50, pace:"6:00–6:30", hr:"130–150", label:"Endurance fondamentale" } },
 };
 
+/* Séance bonus : le jour en plus, quand il reste de l'envie mais pas de la récupération.
+   Volontairement complémentaire et pas une 6e séance lourde : arrière d'épaule, mollets,
+   grip, mobilité. Rien qui tape sur pec, triceps ou jambes, pour ne pas abîmer le lundi.
+   easy:1   → le padel ne la rabote pas, elle est déjà légère.
+   nodebt:1 → si elle saute, elle ne crée pas de dette la semaine suivante. */
+const BONUS = { id:"bonus", name:"Bonus complémentaire", kind:"gym", tag:"Le jour en plus", easy:1, nodebt:1, ex:[
+  { id:"b_oiseaux",  n:"Oiseaux haltères",            s:4, r:[12,15], kg:8, inc:2, rest:60, tier:3,
+    note:"Arrière d'épaule : ton point faible, et c'est lui qui stabilise le bench" },
+  { id:"b_rotext",   n:"Rotation externe épaule",     s:3, r:[12,15], kg:4, inc:2, rest:45, tier:3,
+    note:"Par bras. Léger exprès : c'est de l'assurance sur l'épaule, pas du travail de force" },
+  { id:"b_mollets",  n:"Mollets une jambe sur marche", s:4, r:[15,20], kg:0, inc:0, rest:45, bw:1, tier:3,
+    note:"2 s en bas. Les mollets débloquent par la fréquence, pas par la charge" },
+  { id:"b_hang",     n:"Suspension à la barre",       s:3, r:[30,60], kg:0, inc:0, rest:60, bw:1, tier:3,
+    note:"En secondes. Grip et épaules sans retaper sur les tractions" },
+  { id:"b_curlmart", n:"Curl marteau léger",          s:3, r:[10,12], kg:8, inc:2, rest:60, tier:3,
+    note:"Charge suivie à part de ton curl marteau du mardi" },
+  { id:"b_mob",      n:"Mobilité hanches, ischios, épaules", s:1, r:[8,10], kg:0, inc:0, rest:0, bw:1, tier:3,
+    note:"En minutes" },
+]};
+
 /* Exercices hors séance type, disponibles dans « Modifier les exercices » */
 const EXTRAS = [
   { id:"dim_lourd", n:"Développé incliné Smith lourd", s:4, r:[6,8],   kg:55, inc:2.5, rest:150, tier:1,
     note:"Mouvement principal de la semaine B, fourchette basse" },
-  { id:"pecfly",    n:"Pec fly (écarté machine)",      s:3, r:[12,15], kg:40, inc:5,   rest:75,  tier:3 },
+  { id:"pecfly",    n:"Pec fly (écarté machine)",      s:3, r:[10,12], kg:35, inc:5,   rest:75,  tier:3 },
   { id:"rowing",    n:"Rowing barre",            s:3, r:[6,8],   kg:60, inc:5,   rest:120, tier:2 },
   { id:"facepull",  n:"Face pull",               s:3, r:[12,15], kg:15, inc:2.5, rest:60,  tier:2 },
   { id:"gainlat",   n:"Gainage latéral",         s:3, r:[20,45], kg:0,  inc:0,   rest:45,  bw:1, tier:3, note:"En secondes, de chaque côté" },
@@ -225,8 +246,12 @@ const EXTRAS = [
 /* ═════════ PHASES ═════════ */
 
 const PHASES = {
-  p1: { n:"Remontée",       d:"3 semaines",  kcal:2850, prot:180, gluc:345, lip:80, gain:0,    goal:"Poids stable pendant qu'on remonte les calories" },
-  p2: { n:"Prise de masse", d:"4 à 5 mois",  kcal:3150, prot:180, gluc:410, lip:85, gain:0.25, goal:"+0,25 kg par semaine — 81 vers 85 kg" },
+  seche: { n:"Sèche",          d:"6 à 8 semaines", kcal:2550, prot:200, gluc:280, lip:70, gain:-0.3, min:2250,
+           goal:"−0,3 kg/semaine en gardant tes charges" },
+  p1:    { n:"Remontée",       d:"3 semaines",     kcal:2850, prot:185, gluc:345, lip:80, gain:0,
+           goal:"Poids stable pendant qu'on remonte les calories" },
+  p2:    { n:"Prise de masse", d:"4 à 5 mois",     kcal:3150, prot:185, gluc:410, lip:85, gain:0.25,
+           goal:"+0,25 kg par semaine, une fois la sèche terminée" },
 };
 
 /* ═════════ CURES DE COMPLÉMENTS ═════════ */
