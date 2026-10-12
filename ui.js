@@ -366,6 +366,42 @@ function viewSupps(d) {
 
 /* ═════════ POIDS ═════════ */
 
+/* ═════════ SAISON ═════════ */
+
+function viewSaison() {
+  const C = calendrier();
+  const encours = C.blocs.filter((b) => b.now)[0];
+  const prochain = C.blocs.filter((b) => b.d0 > iso())[0];
+  let h = '<h2>Ta saison</h2>';
+
+  if (encours) {
+    const reste = semEntre(iso(), encours.d1);
+    h += '<div class="card pad sais"><h3>' + esc(encours.n) + "</h3>" +
+         "<p>" + esc(encours.but) + "</p>" +
+         '<p class="small"><b>' + (reste > 0 ? reste + " semaine" + (reste > 1 ? "s" : "") + " restante" + (reste > 1 ? "s" : "") : "Dernière semaine") +
+         "</b>" + (prochain ? " · ensuite " + esc(prochain.n).toLowerCase() : "") + "</p></div>";
+  }
+
+  h += '<div class="card">';
+  C.blocs.forEach((b) => {
+    h += '<div class="saisrow' + (b.now ? " on" : "") + (b.evt ? " evt" : "") + '">' +
+         '<div class="grow"><b>' + esc(b.n) + "</b><small>" + (b.evt ? dateFr(b.d0) : dateFr(b.d0) + " → " + dateFr(b.d1)) + "</small></div>" +
+         "<i>" + (b.evt ? "course" : b.sem + " sem") + "</i></div>";
+  });
+  h += "</div>";
+
+  C.alerte.forEach((m) => { h += '<p class="note warn">' + esc(m) + "</p>"; });
+
+  h += '<div class="card pad"><h3>Les trois dates</h3>' +
+       '<p class="small">Tout le reste se recalcule à partir d\'elles : le bloc Hyrox remonte de 12 semaines avant la course, le bloc marathon de 18.</p>' +
+       [["fin", "Fin de la sèche"], ["hyrox", "Hyrox"], ["marathon", "Marathon"]].map(([k, n]) =>
+         '<div class="row"><span>' + n + '</span><input type="date" id="dt_' + k + '" data-dte="' + k + '" value="' + C.R[k] + '"></div>').join("") +
+       (S.races.fin || S.races.hyrox || S.races.marathon
+         ? '<button class="ghost" data-act="racesreset">Revenir aux dates proposées</button>' : "") +
+       "</div>";
+  return h;
+}
+
 function viewPoids() {
   const P = PHASES[S.phase], w = S.weights, dow = new Date().getDay();
   const weighDay = dow === 1 || dow === 3 || dow === 5, doneToday = w.some((x) => x.d === iso());
@@ -374,6 +410,8 @@ function viewPoids() {
           '<div class="duo phases">' +
           Object.keys(PHASES).map((k) => '<button class="tog ph' + (S.phase === k ? " on" : "") + '" data-act="phase" data-id="' + k + '"><b>' + PHASES[k].n + "</b><i>" + PHASES[k].kcal + " kcal</i></button>").join("") +
           "</div></div>";
+
+  h += viewSaison();
 
   h += "<h2>" + (weighDay && !doneToday ? "Pèse-toi ce matin" : "Pesée") + '</h2><div class="card pad">';
   if (weighDay && !doneToday) h += '<p class="small wgt">Jour de pesée. Au réveil, après être passé aux toilettes, avant de boire.</p>';
@@ -635,6 +673,7 @@ document.addEventListener("click", (e) => {
   else if (a === "ch.plus") chronoDecale(15);
   else if (a === "ch.moins") chronoDecale(-15);
   else if (a === "ch.stop") chronoStop();
+  else if (a === "racesreset") { S.races = {}; save(); }
   else if (a === "rep-" || a === "rep+") { const i = +id; V.tmp.reps[i] = Math.max(0, V.tmp.reps[i] + (a === "rep+" ? 1 : -1)); }
   else if (a === "skg+" || a === "skg-") {
     const i = +id, s = ex && ex.inc ? ex.inc : 0.5;
@@ -784,6 +823,9 @@ document.addEventListener("input", (e) => {
   if (e.target.id === "pd") { V.tmp.pd = e.target.value; }
   if (e.target.id === "pw2") { V.tmp.pw2 = e.target.value; }
   if (e.target.id === "mq") { V.tmp.mq = e.target.value; }
+  if (e.target.dataset && e.target.dataset.dte && /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) {
+    S.races[e.target.dataset.dte] = e.target.value; save(); render();
+  }
 });
 
 document.addEventListener("change", (e) => {

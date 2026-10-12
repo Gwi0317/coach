@@ -125,6 +125,21 @@ const CARB_FOODS = ["riz","pates","painmie","wasa","flocons","muesli","mangue","
 
 /* ═════════ PROGRAMME ═════════ */
 
+/* ═════════ SAISON ═════════ */
+/* Hyrox d'abord, marathon ensuite : un bloc marathon fait fondre et coûte les charges,
+   autant le passer après la course qui demande du muscle. Les durées sont fixes,
+   la prise de masse absorbe simplement le temps qui reste. */
+const SAISON = [
+  { id:"seche", n:"Sèche",           ph:"seche", but:"Perdre le gras restant en gardant tes charges" },
+  { id:"p1",    n:"Remontée",   s:3,  ph:"p1",    but:"Remonter les calories sans reprendre de gras" },
+  { id:"p2",    n:"Prise de masse",   ph:"p2",    but:"La base du sled et du farmers : squat, fentes, tirage, grip" },
+  { id:"hx",    n:"Bloc Hyrox", s:12, ph:"p1",    but:"Stations, sled, 1 km rapides sur jambes fatiguées" },
+  { id:"HX",    n:"Hyrox",      evt:1,            but:"Objectif sous 1 h 45" },
+  { id:"rec",   n:"Reprise",    s:3,  ph:"p1",    but:"Récupération, puis remontée du kilométrage" },
+  { id:"mb",    n:"Bloc marathon", s:18, ph:"p1", but:"Kilométrage, sorties longues, allure spécifique" },
+  { id:"MR",    n:"Marathon",   evt:1,            but:"Objectif 4 h 00 à 4 h 15" },
+];
+
 const DAYS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 const LONG = { Lun:"Lundi", Mar:"Mardi", Mer:"Mercredi", Jeu:"Jeudi", Ven:"Vendredi", Sam:"Samedi", Dim:"Dimanche" };
 

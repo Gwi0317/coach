@@ -21,6 +21,7 @@ if (!S.perso) S.perso = [];
 if (!S.suppOff) S.suppOff = {};
 if (!S.reel) S.reel = {};
 if (!S.sets) S.sets = {};
+if (!S.races) S.races = {};
 // on ne garde les séries cochées que 21 jours : c'est de l'état de séance, pas de l'historique
 Object.keys(S.sets).forEach((k) => { if (k.slice(0, 10) < daysAgo(21)) delete S.sets[k]; });
 let FOODS = {}, PLAN = {};
@@ -245,6 +246,46 @@ function avancement(day, sess) {
     if (loggue || (n >= ex.s && ex.s > 0)) exFaits++;
   });
   return { exTot: l.length, exFaits, sTot, sFaites };
+}
+
+/* ═════════ CALENDRIER DE SAISON ═════════ */
+/* Trois dates suffisent : la fin de la sèche, l'Hyrox, le marathon.
+   Tout le reste se déduit en remontant depuis les courses. */
+const J = 86400000;
+function dPlus(iso0, sem) { const t = new Date(iso0 + "T12:00:00"); t.setDate(t.getDate() + sem * 7); return t.toISOString().slice(0, 10); }
+function semEntre(a, b) { return Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / (7 * J)); }
+function dateFr(s) {
+  const M = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+  const t = new Date(s + "T12:00:00");
+  return t.getDate() + " " + M[t.getMonth()] + " " + t.getFullYear();
+}
+function racesDef() {
+  return { fin: S.races.fin || dPlus(iso(), 5),
+           hyrox: S.races.hyrox || dPlus(iso(), 52),
+           marathon: S.races.marathon || dPlus(iso(), 78) };
+}
+/* Renvoie les blocs datés, le bloc en cours, et les incohérences de calendrier. */
+function calendrier() {
+  const R = racesDef(), out = [], alerte = [];
+  const debutHx = dPlus(R.hyrox, -12), finP1 = dPlus(R.fin, 3);
+  const finRec = dPlus(R.hyrox, 3), debutMb = dPlus(R.marathon, -18);
+  const bornes = {
+    seche: [iso(), R.fin], p1: [R.fin, finP1], p2: [finP1, debutHx],
+    hx: [debutHx, R.hyrox], HX: [R.hyrox, R.hyrox],
+    rec: [R.hyrox, finRec], mb: [debutMb, R.marathon], MR: [R.marathon, R.marathon],
+  };
+  SAISON.forEach((b) => {
+    const [d0, d1] = bornes[b.id];
+    out.push(Object.assign({}, b, { d0, d1, sem: semEntre(d0, d1), now: iso() >= d0 && iso() < d1 || (b.evt && iso() === d0) }));
+  });
+  const pm = semEntre(finP1, debutHx);
+  if (pm < 12) alerte.push(pm <= 0
+    ? "L'Hyrox est trop tôt : il ne reste pas de place pour une prise de masse. Recule la course, ou raccourcis la sèche."
+    : "Il ne reste que " + pm + " semaines de prise de masse. En dessous de 12, elle ne sert pas à grand-chose : recule l'Hyrox.");
+  if (pm > 24) alerte.push("Avec " + pm + " semaines de prise de masse, prévois une mini-sèche de 4 semaines au milieu : au-delà de 5 à 6 mois d'affilée, la part de gras reprise grimpe.");
+  if (debutMb < finRec) alerte.push("Le bloc marathon devrait commencer avant que tu sois remis de l'Hyrox. Écarte les deux courses d'au moins 21 semaines.");
+  if (!out.some((b) => b.now)) alerte.push("Aucun bloc en cours : vérifie tes dates.");
+  return { blocs: out, alerte: alerte, R: R };
 }
 
 /* ═════════ CHRONOMÈTRE DE REPOS ═════════ */
