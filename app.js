@@ -613,8 +613,13 @@ DAYS.forEach((d) => (DEFAULT_PROGRAM[d].ex || []).forEach((e) => {
     EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc, note:v.note || "", alt:null });
   });
 }));
-(BONUS.ex || []).forEach((e) => { EXCAT[e.id] = e; });
-EXTRAS.forEach((e) => { EXCAT[e.id] = e; });
+[].concat(BONUS.ex || [], EXTRAS).forEach((e) => {
+  EXCAT[e.id] = e;
+  (e.alt || []).forEach((v) => {
+    EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc,
+                                         r:v.r || e.r, s:v.s || e.s, note:v.note || "", alt:null });
+  });
+});
 const EXALL = Object.keys(EXCAT).sort((x, y) => EXCAT[x].n.localeCompare(EXCAT[y].n));
 
 function exIds(sess) { return S.seance[sess.id] || (sess.ex || []).map((e) => e.id); }

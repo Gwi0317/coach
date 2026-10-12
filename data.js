@@ -199,7 +199,9 @@ const DEFAULT_PROGRAM = {
       alt:[{ id:"elevlat_h", n:"Élévation latérale haltères", kg:8, inc:2, r:[10,12] }] },
     { id:"arriere",   n:"Arrière d'épaule machine",    s:4, r:[12,15], kg:15, inc:2.5, rest:60,  tier:2,
       note:"Ton point faible : finis les 15 sur les 4 séries",
-      alt:[{ id:"arriere_h", n:"Oiseau haltères", kg:8, inc:2, r:[10,12] }] },
+      alt:[{ id:"arriere_h", n:"Oiseau haltères", kg:8, inc:2, r:[10,12] },
+           { id:"arriere_pan", n:"Arrière d'épaule Panatta debout", kg:20, inc:5, r:[12,15],
+             note:"Plus d'amplitude qu'un pec deck inversé assis. Poitrine au coussin, elle ne décolle pas" }] },
     { id:"elevfront", n:"Élévation frontale",          s:3, r:[8,12],  kg:8,  inc:2,   rest:60,  tier:3,
       note:"Fourchette large : 2 kg d'écart aux haltères, c'est 25 % de charge" },
     { id:"shrugs",    n:"Shrugs",                      s:3, r:[12,15], kg:35, inc:5,   rest:75,  tier:2 },
@@ -233,7 +235,8 @@ const DEFAULT_PROGRAM = {
    nodebt:1 → si elle saute, elle ne crée pas de dette la semaine suivante. */
 const BONUS = { id:"bonus", name:"Bonus complémentaire", kind:"gym", tag:"Le jour en plus", easy:1, nodebt:1, ex:[
   { id:"b_oiseaux",  n:"Oiseaux haltères",            s:4, r:[12,15], kg:8, inc:2, rest:60, tier:3,
-    note:"Arrière d'épaule : ton point faible, et c'est lui qui stabilise le bench" },
+    note:"Arrière d'épaule : ton point faible, et c'est lui qui stabilise le bench",
+    alt:[{ id:"b_oiseaux_pan", n:"Arrière d'épaule Panatta debout", kg:20, inc:5 }] },
   { id:"b_rotext",   n:"Rotation externe épaule",     s:3, r:[12,15], kg:4, inc:2, rest:45, tier:3,
     note:"Par bras. Léger exprès : c'est de l'assurance sur l'épaule, pas du travail de force" },
   { id:"b_mollets",  n:"Mollets une jambe sur marche", s:4, r:[15,20], kg:0, inc:0, rest:45, bw:1, tier:3,
@@ -250,7 +253,9 @@ const BONUS = { id:"bonus", name:"Bonus complémentaire", kind:"gym", tag:"Le jo
 const EXTRAS = [
   { id:"dim_lourd", n:"Développé incliné Smith lourd", s:4, r:[6,8],   kg:55, inc:2.5, rest:150, tier:1,
     note:"Mouvement principal de la semaine B, fourchette basse" },
-  { id:"pecfly",    n:"Pec fly (écarté machine)",      s:3, r:[10,12], kg:35, inc:5,   rest:75,  tier:3 },
+  { id:"pecfly",    n:"Pec fly (écarté machine)",      s:3, r:[10,12], kg:35, inc:5,   rest:75,  tier:3,
+    alt:[{ id:"pecfly_pan", n:"Écarté Panatta debout", kg:30, inc:5,
+           note:"Centres de rotation à hauteur de milieu de pec, coude fixe, mains jusqu'à la ligne médiane" }] },
   { id:"rowing",    n:"Rowing barre",            s:3, r:[6,8],   kg:60, inc:5,   rest:120, tier:2 },
   { id:"facepull",  n:"Face pull",               s:3, r:[12,15], kg:15, inc:2.5, rest:60,  tier:2 },
   { id:"gainlat",   n:"Gainage latéral",         s:3, r:[20,45], kg:0,  inc:0,   rest:45,  bw:1, tier:3, note:"En secondes, de chaque côté" },
