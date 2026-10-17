@@ -22,6 +22,7 @@ if (!S.suppOff) S.suppOff = {};
 if (!S.reel) S.reel = {};
 if (!S.sets) S.sets = {};
 if (!S.races) S.races = {};
+if (!S.reset) S.reset = {};
 // on ne garde les séries cochées que 21 jours : c'est de l'état de séance, pas de l'historique
 Object.keys(S.sets).forEach((k) => { if (k.slice(0, 10) < daysAgo(21)) delete S.sets[k]; });
 let FOODS = {}, PLAN = {};
@@ -71,8 +72,17 @@ function dayMac(day) {
 const FULL_DAYS = ["Lun","Mar","Mer","Jeu"];   // vendredi : dîner chez les parents, hors plan
 function baseTarget() { return PHASES[S.phase].kcal + (S.offset || 0); }
 function target(day) {
+  if (WEEKEND[day]) return WEEKEND[day].kcal;       // samedi et dimanche ont leur propre cible
   if (FULL_DAYS.indexOf(day) < 0) return null;      // pas de cible sur un jour partiel
   return baseTarget() + (S.padel[day] ? 350 : 0);
+}
+/* Moyenne hebdomadaire réelle : 5 jours de semaine + le week-end budgété. */
+function moyenneSemaine() {
+  return Math.round((baseTarget() * 5 + WEEKEND.Sam.kcal + WEEKEND.Dim.kcal) / 7);
+}
+function deficitSemaine() {
+  const MAINTENANCE = 2800;
+  return Math.round(MAINTENANCE * 7 - (baseTarget() * 5 + WEEKEND.Sam.kcal + WEEKEND.Dim.kcal));
 }
 function qtyLabel(f, g) {
   const F = FOODS[f];
@@ -385,21 +395,51 @@ function planKcal(plan, d) {
   plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (FOODS[f]) k += FOODS[f].k * g / 100; }));
   return k;
 }
+function planProt(plan, d) {
+  let p = 0;
+  plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (FOODS[f]) p += FOODS[f].p * g / 100; }));
+  return p;
+}
 function alignPlan() {
+  const P = PHASES[S.phase];
   editPlan((plan) => {
     FULL_DAYS.forEach((d) => {
-      for (let pass = 0; pass < 3; pass++) {
-        const need = baseTarget() - planKcal(plan, d);
-        if (Math.abs(need) < 25) break;
-        let carbK = 0;
-        plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (CARB_FOODS.indexOf(f) >= 0) carbK += FOODS[f].k * g / 100; }));
-        if (carbK <= 0) break;
-        const factor = Math.max(0.75, Math.min(1.3, (carbK + need) / carbK));
-        plan[d].forEach((m) => m.f.forEach((it) => {
-          if (CARB_FOODS.indexOf(it[0]) < 0) return;
-          const F = FOODS[it[0]], step = F.uG ? F.uG / 2 : 5;
-          it[1] = Math.max(step, Math.round(it[1] * factor / step) * step);
-        }));
+      /* Deux leviers qui se contrarient : monter les protéines ajoute des calories,
+         couper les féculents retire des protéines (pâtes et pain en contiennent).
+         On alterne donc jusqu'à ce que les deux cibles tiennent ensemble. */
+      for (let round = 0; round < 4; round++) {
+        /* 1) Les protéines d'abord. En déficit c'est la seule macro qu'on ne négocie pas :
+           baisser les calories sans les tenir revient à couper dans le muscle.
+           On augmente en priorité l'aliment le plus riche en protéines par calorie. */
+        for (let i = 0; i < 60 && P.prot && planProt(plan, d) < P.prot - 1; i++) {
+          let best = null;
+          plan[d].forEach((m) => m.f.forEach((it) => {
+            if (PROT_FOODS.indexOf(it[0]) < 0) return;
+            const F = FOODS[it[0]]; if (!F || !F.k) return;
+            const r = F.p / F.k;
+            if (!best || r > best.r) best = { it: it, r: r, step: F.uG ? F.uG / 2 : 10 };
+          }));
+          if (!best) break;
+          best.it[1] += best.step;
+        }
+        /* 2) Puis les féculents, pour retomber sur la cible calorique. */
+        let bouge = false;
+        for (let pass = 0; pass < 4; pass++) {
+          const need = baseTarget() - planKcal(plan, d);
+          if (Math.abs(need) < 25) break;
+          let carbK = 0;
+          plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (CARB_FOODS.indexOf(f) >= 0) carbK += FOODS[f].k * g / 100; }));
+          if (carbK <= 0) break;
+          const factor = Math.max(0.75, Math.min(1.3, (carbK + need) / carbK));
+          plan[d].forEach((m) => m.f.forEach((it) => {
+            if (CARB_FOODS.indexOf(it[0]) < 0) return;
+            const F = FOODS[it[0]], step = F.uG ? F.uG / 2 : 5;
+            const avant = it[1];
+            it[1] = Math.max(step, Math.round(it[1] * factor / step) * step);
+            if (it[1] !== avant) bouge = true;
+          }));
+        }
+        if (!bouge && (!P.prot || planProt(plan, d) >= P.prot - 1)) break;
       }
     });
   });
@@ -497,7 +537,10 @@ function bilanSemaine() {
   // stagnation : trois validations d'affilée sans montée
   const parExo = {};
   Object.keys(S.logs).sort().forEach((k) =>
-    Object.keys(S.logs[k]).forEach((id) => { (parExo[id] = parExo[id] || []).push(S.logs[k][id]); }));
+    Object.keys(S.logs[k]).forEach((id) => {
+      if (!depuisReset(id, k)) return;   // avant la remise à zéro, ça ne compte pas
+      (parExo[id] = parExo[id] || []).push(S.logs[k][id]);
+    }));
   Object.keys(parExo).forEach((id) => {
     const t = parExo[id].slice(-3);
     if (t.length === 3 && t.every((e) => e.next === e.kg)) bloques.push(id);
@@ -578,8 +621,15 @@ function chercherCodeBarres(code, cb) {
 
 /* ═════════ OBJECTIF DU JOUR, PAR EXERCICE ═════════ */
 
+/* Remise à zéro d'un exercice : quand l'exécution change (plus strict, plus
+   profond, charge redescendue volontairement), l'ancien historique ne veut plus
+   rien dire. On garde les logs, on déplace juste le point de comparaison. */
+function resetExo(id) { S.reset[id] = iso(); if (S.snap) delete S.snap[id]; save(); }
+function annulerReset(id) { delete S.reset[id]; save(); }
+function depuisReset(id, k) { return !S.reset[id] || k.slice(0, 10) >= S.reset[id]; }
+
 function dernierLog(id, saufAujourdhui) {
-  const keys = Object.keys(S.logs).filter((k) => S.logs[k][id] && (!saufAujourdhui || k.slice(0, 10) !== iso())).sort();
+  const keys = Object.keys(S.logs).filter((k) => S.logs[k][id] && depuisReset(id, k) && (!saufAujourdhui || k.slice(0, 10) !== iso())).sort();
   if (!keys.length) return null;
   const k = keys[keys.length - 1];
   return { date: k.slice(0, 10), e: S.logs[k][id] };

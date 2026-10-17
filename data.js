@@ -122,8 +122,25 @@ const REPAS_VAR = {
 };
 
 const CARB_FOODS = ["riz","pates","painmie","wasa","flocons","muesli","mangue","miel","wrap","painbio"];
+/* Sources de protéines, dans l'ordre où on les augmente quand la journée est sous la cible */
+const PROT_FOODS = ["poulet","steak","truite","cabillaud","thonhuile","skyr","cottage","psuisse","wheyfraise","clear"];
 
 /* ═════════ PROGRAMME ═════════ */
+
+/* ═════════ WEEK-END ═════════ */
+/* Le week-end n'est plus « libre ». Les données du 11 au 16 octobre ont montré
+   qu'un dimanche à 3 678 kcal annulait le déficit des cinq jours précédents.
+   Le dimanche n'est pas compté repas par repas — il est budgété à 3 500, ce qui
+   correspond à ce qui se mange réellement. Si la journée tombe en dessous,
+   c'est du déficit en plus. */
+const WEEKEND = {
+  Sam: { kcal:2500, prot:200, gluc:290, lip:60,
+         t:"Samedi compté",
+         p:"Même logique que la semaine, 200 kcal de marge en plus. Les protéines ne bougent pas." },
+  Dim: { kcal:3500, prot:180, libre:1,
+         t:"Dimanche budgété",
+         p:"Tu ne comptes pas, mais 3 500 est un plafond, pas un objectif. Une source de protéines à chaque repas et tu es dans les clous." },
+};
 
 /* ═════════ SAISON ═════════ */
 /* Hyrox d'abord, marathon ensuite : un bloc marathon fait fondre et coûte les charges,
@@ -187,8 +204,8 @@ const DEFAULT_PROGRAM = {
       alt:[{ id:"legcurl_a", n:"Leg curl allongé", kg:30, inc:5 }] },
     { id:"hip",     n:"Hip thrust",                       s:3, r:[10,12], kg:35,  inc:5,  rest:90,  tier:2,
       alt:[{ id:"hip_b", n:"Hip thrust barre", kg:60, inc:10 }] },
-    { id:"mollets", n:"Mollets debout",                   s:3, r:[12,15], kg:140, inc:10, rest:60,  tier:3,
-      note:"Pause 1 s en bas, 1 s en haut",
+    { id:"mollets", n:"Mollets debout",                   s:4, r:[12,15], kg:140, inc:10, rest:60,  tier:3,
+      note:"Pause 1 s en bas, 1 s en haut. 4 séries : 3 ne suffisaient pas à les débloquer",
       alt:[{ id:"mollets_a", n:"Mollets assis", kg:60, inc:5 }] },
   ]},
   Jeu: { id:"epaules", name:"Épaules + abdos", kind:"gym", tag:"Obligatoire", ex:[
@@ -210,8 +227,8 @@ const DEFAULT_PROGRAM = {
     { id:"obliques",  n:"Obliques haltère",            s:3, r:[12,15], kg:14, inc:2,   rest:60,  tier:3 },
   ]},
   Ven: { id:"force", name:"Force : tractions et bench", kind:"gym", tag:"Variable d'ajustement", alt:1, ex:[
-    { id:"sdt",     n:"Soulevé de terre",        s:4, r:[5,5], kg:115, inc:2.5, rest:180, tier:1,
-      note:"+15 kg en 2 semaines, c'est assez : 2,5 kg par semaine maintenant" },
+    { id:"sdt",     n:"Soulevé de terre",        s:3, r:[5,5], kg:110, inc:2.5, rest:180, tier:1,
+      note:"3 séries, charge tenue à 110 : technique d'abord, et du jus pour le bench" },
     { id:"dcbar",   n:"Développé couché barre",  s:4, r:[5,5], kg:80,  inc:2.5, rest:180, tier:1,
       note:"4×5 strict : tant que les 4 séries ne font pas 5, la charge ne bouge pas",
       alt:[{ id:"dcbar_p", n:"Développé couché pause 1 s", kg:70, inc:2.5 }] },
@@ -266,8 +283,8 @@ const EXTRAS = [
 /* ═════════ PHASES ═════════ */
 
 const PHASES = {
-  seche: { n:"Sèche",          d:"6 à 8 semaines", kcal:2550, prot:200, gluc:280, lip:70, gain:-0.3, min:2250,
-           goal:"−0,3 kg/semaine en gardant tes charges" },
+  seche: { n:"Sèche",          d:"jusqu'au 6 décembre", kcal:2300, prot:200, gluc:240, lip:60, gain:-0.27, min:2250,
+           goal:"−0,27 kg/semaine en gardant tes charges" },
   p1:    { n:"Remontée",       d:"3 semaines",     kcal:2850, prot:185, gluc:345, lip:80, gain:0,
            goal:"Poids stable pendant qu'on remonte les calories" },
   p2:    { n:"Prise de masse", d:"4 à 5 mois",     kcal:3150, prot:185, gluc:410, lip:85, gain:0.25,

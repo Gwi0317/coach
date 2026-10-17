@@ -234,6 +234,10 @@ function viewSeance() {
       h += '<button class="cta gym" data-act="logex" data-id="' + ex.id + '">Valider l\'exercice' +
            (nf && nf < ex.s ? " (" + nf + "/" + ex.s + " cochées)" : "") + "</button>";
       if (done) h += '<p class="small">' + esc(done.msg) + " → prochaine fois <b>" + fr(done.next) + " kg</b></p>";
+      h += S.reset[ex.id]
+        ? '<p class="rz">Comparaisons repartent du ' + dateFr(S.reset[ex.id]) +
+          ' · <button data-act="unreset" data-id="' + ex.id + '">annuler</button></p>'
+        : '<button class="ghost" data-act="reset" data-id="' + ex.id + '">J\'ai changé l\'exécution — repartir de zéro</button>';
       h += "</div>";
     }
     h += "</div>";
@@ -257,7 +261,34 @@ function viewRepas() {
   let h = "";
 
   if (!meals.length) {
-    h += '<div class="hero nut"><small>Week-end</small><h1>Repas libres</h1><p>Chez tes parents. Mange à ta faim, ne compte pas : sur sept jours ça s\'équilibre.</p></div>';
+    const W = WEEKEND[d];
+    if (!W) {
+      h += '<div class="hero nut"><small>Hors plan</small><h1>Pas de repas prévus</h1><p>Rien de programmé ce jour-là.</p></div>';
+      return h + viewSupps(d);
+    }
+    const rw = S.reel[dayStamp(d)] || {};
+    h += '<div class="hero nut"><small>' + esc(W.t) + "</small><h1>" + W.kcal + " kcal</h1><p>" + esc(W.p) + "</p>" +
+         '<div class="macros" style="margin-top:12px">' +
+         '<div><small>Protéines</small><b>' + W.prot + "<i> g</i></b></div>" +
+         (W.libre
+           ? '<div><small>Glucides</small><b>libre</b></div><div><small>Lipides</small><b>libre</b></div>'
+           : '<div><small>Glucides</small><b>' + W.gluc + "<i> g</i></b></div><div><small>Lipides</small><b>" + W.lip + "<i> g</i></b></div>") +
+         "</div></div>";
+    h += '<div class="card pad reel"><h3>Relevé Foodvisor</h3>' +
+         '<p class="small">' + (W.libre
+           ? "Tu n'as pas à le faire chaque dimanche. Un par mois suffit pour vérifier que les 3 500 tiennent."
+           : "Ce que tu as vraiment mangé. C'est ce chiffre qui pilote le bilan.") + "</p>" +
+         '<div class="row"><span>Calories</span>' + stepper("rk", "", rw.kcal || 0, " kcal", 10) + "</div>" +
+         '<div class="row"><span>Protéines</span>' + stepper("rp", "", rw.p || 0, " g", 5) + "</div>" +
+         (rw.kcal ? '<p class="small ' + (rw.kcal > W.kcal ? "warn" : "ok") + '">' +
+            (rw.kcal > W.kcal ? "+" + (rw.kcal - W.kcal) + " kcal au-dessus du budget, soit " +
+               Math.round((rw.kcal - W.kcal) / 7.7) + " g de gras et " +
+               fr((rw.kcal - W.kcal) / (deficitSemaine() / 7)) + " jour de déficit annulé."
+             : (W.kcal - rw.kcal) + " kcal sous le budget : c'est du déficit en plus.") + "</p>" : "") +
+         "</div>";
+    h += '<p class="note nut">Moyenne de ta semaine avec ce week-end : <b>' + moyenneSemaine() +
+         " kcal/jour</b>, soit " + deficitSemaine() + " kcal de déficit hebdomadaire et environ " +
+         fr(deficitSemaine() / 7700) + " kg par semaine.</p>";
     return h + viewSupps(d);
   }
 
@@ -615,7 +646,7 @@ function render() {
   const d = V.day, sess = DEFAULT_PROGRAM[d];
   $("#head").innerHTML =
     '<div class="hrow"><b>' + LONG[d] + (d === todayKey() ? '<span> · aujourd\'hui</span>' : "") + "</b>" +
-    "<i>" + (PHASES[S.phase].kcal + (S.offset || 0)) + " kcal</i></div>" +
+    "<i>" + (target(d) || baseTarget()) + " kcal</i></div>" +
     '<div class="days">' + DAYS.map((x) =>
       '<button class="' + (x === V.day ? "on " : "") + (S.skipped[x] ? "miss" : "") + '" data-act="day" data-id="' + x + '">' + x + "</button>").join("") + "</div>";
   $("#main").innerHTML =
@@ -674,6 +705,8 @@ document.addEventListener("click", (e) => {
   else if (a === "ch.moins") chronoDecale(-15);
   else if (a === "ch.stop") chronoStop();
   else if (a === "racesreset") { S.races = {}; save(); }
+  else if (a === "reset") { resetExo(id); }
+  else if (a === "unreset") { annulerReset(id); }
   else if (a === "rep-" || a === "rep+") { const i = +id; V.tmp.reps[i] = Math.max(0, V.tmp.reps[i] + (a === "rep+" ? 1 : -1)); }
   else if (a === "skg+" || a === "skg-") {
     const i = +id, s = ex && ex.inc ? ex.inc : 0.5;
