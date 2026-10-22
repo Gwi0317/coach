@@ -21,6 +21,14 @@ if (!S.perso) S.perso = [];
 if (!S.suppOff) S.suppOff = {};
 if (!S.reel) S.reel = {};
 if (!S.sets) S.sets = {};
+if (!S.migr) S.migr = {};
+/* Le muscle up s'ajoute en tête de la séance force, une fois et une seule :
+   si tu le retires ensuite, il ne revient pas. */
+if (!S.migr.muscleup) {
+  S.migr.muscleup = 1;
+  if (S.seance && S.seance.force && S.seance.force.indexOf("muscleup") < 0)
+    S.seance.force = ["muscleup"].concat(S.seance.force);
+}
 if (!S.races) S.races = {};
 if (!S.reset) S.reset = {};
 // on ne garde les séries cochées que 21 jours : c'est de l'état de séance, pas de l'historique
@@ -660,7 +668,8 @@ const EXCAT = {};
 DAYS.forEach((d) => (DEFAULT_PROGRAM[d].ex || []).forEach((e) => {
   EXCAT[e.id] = e;
   (e.alt || []).forEach((v) => {
-    EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc, note:v.note || "", alt:null });
+    EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc,
+                                         r:v.r || e.r, s:v.s || e.s, note:v.note || "", alt:null });
   });
 }));
 [].concat(BONUS.ex || [], EXTRAS).forEach((e) => {

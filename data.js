@@ -227,6 +227,14 @@ const DEFAULT_PROGRAM = {
     { id:"obliques",  n:"Obliques haltère",            s:3, r:[12,15], kg:14, inc:2,   rest:60,  tier:3 },
   ]},
   Ven: { id:"force", name:"Force : tractions et bench", kind:"gym", tag:"Variable d'ajustement", alt:1, ex:[
+    /* En tête de séance : le muscle up est un geste technique avant d'être un geste de force.
+       Fatigué, on ne l'apprend pas, on le rate. Progression suivie en répétitions, pas en
+       charge : sur la version élastique on progresse en AMINCISSANT l'élastique, donc une
+       charge chiffrée n'aurait aucun sens ici. */
+    { id:"muscleup", n:"Muscle up strict",       s:4, r:[1,3], kg:0, inc:0, rest:180, bw:1, tier:1,
+      note:"L'objectif. Tirée explosive jusqu'au bas des pectoraux, puis bascule des poignets",
+      alt:[{ id:"muscleup_el", n:"Muscle up à l'élastique", kg:0, inc:0, r:[3,5],
+             note:"Quand tu boucles 4×5 proprement, tu passes à l'élastique plus fin" }] },
     { id:"sdt",     n:"Soulevé de terre",        s:3, r:[5,5], kg:110, inc:2.5, rest:180, tier:1,
       note:"3 séries, charge tenue à 110 : technique d'abord, et du jus pour le bench" },
     { id:"dcbar",   n:"Développé couché barre",  s:4, r:[5,5], kg:80,  inc:2.5, rest:180, tier:1,
