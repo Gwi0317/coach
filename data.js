@@ -194,8 +194,8 @@ const DEFAULT_PROGRAM = {
     { id:"curlmart", n:"Curl marteau",               s:3, r:[10,12], kg:8,  inc:2,   rest:75,  tier:3 },
   ]},
   Mer: { id:"jambes", name:"Jambes", kind:"gym", tag:"Ne la saute pas", ex:[
-    { id:"squat",   n:"Pendule squat",                    s:4, r:[6,8],   kg:125, inc:2.5, rest:180, tier:1,
-      note:"Record repris : à partir d'ici on monte par 2,5 kg",
+    { id:"squat",   n:"Pendule squat",                    s:3, r:[6,8],   kg:125, inc:2.5, rest:180, tier:1,
+      note:"3 séries en profondeur complète. La 4e ne passait plus, elle n'apportait rien",
       alt:[{ id:"squat_bar", n:"Squat barre", kg:100, inc:5 }, { id:"presse", n:"Presse à cuisses", kg:180, inc:10 }] },
     { id:"sdtjt",   n:"Soulevé de terre jambes tendues",  s:3, r:[8,10],  kg:35,  inc:2.5, rest:120, tier:1,
       alt:[{ id:"sdtjt_b", n:"SDT jambes tendues barre", kg:60, inc:5 }] },
@@ -231,7 +231,7 @@ const DEFAULT_PROGRAM = {
        Fatigué, on ne l'apprend pas, on le rate. Progression suivie en répétitions, pas en
        charge : sur la version élastique on progresse en AMINCISSANT l'élastique, donc une
        charge chiffrée n'aurait aucun sens ici. */
-    { id:"muscleup", n:"Muscle up strict",       s:4, r:[1,3], kg:0, inc:0, rest:180, bw:1, tier:1,
+    { id:"muscleup", n:"Muscle up strict",       s:3, r:[1,3], kg:0, inc:0, rest:180, bw:1, tier:1,
       note:"L'objectif. Tirée explosive jusqu'au bas des pectoraux, puis bascule des poignets",
       alt:[{ id:"muscleup_el", n:"Muscle up à l'élastique", kg:0, inc:0, r:[3,5],
              note:"Quand tu boucles 4×5 proprement, tu passes à l'élastique plus fin" }] },
@@ -240,8 +240,8 @@ const DEFAULT_PROGRAM = {
     { id:"dcbar",   n:"Développé couché barre",  s:4, r:[5,5], kg:80,  inc:2.5, rest:180, tier:1,
       note:"4×5 strict : tant que les 4 séries ne font pas 5, la charge ne bouge pas",
       alt:[{ id:"dcbar_p", n:"Développé couché pause 1 s", kg:70, inc:2.5 }] },
-    { id:"tract_f", n:"Tractions lestées",       s:4, r:[5,6], kg:7.5, inc:2.5, rest:150, tier:1,
-      note:"+10 kg t'a coûté la 4e série : reviens à 7,5 et boucle les 4",
+    { id:"tract_f", n:"Tractions lestées",       s:3, r:[5,6], kg:10, inc:2.5, rest:150, tier:1,
+      note:"3 séries à +10 kg : boucle les 3 avant de remonter la charge",
       alt:[{ id:"tract_f0", n:"Tractions poids du corps", kg:0, inc:2.5 }] },
     { id:"dips_f",  n:"Dips lestés lourds",      s:4, r:[4,6], kg:17.5, inc:2.5, rest:150, tier:1 },
     { id:"fentes",  n:"Fentes haltères",         s:3, r:[8,10], kg:14, inc:2,   rest:90,  tier:2,
