@@ -193,6 +193,8 @@ background:var(--ink);color:#fff;border-top:1px solid var(--ink)}
 #chrono.fini b{animation:cl .8s steps(1) infinite}
 @keyframes cl{50%{opacity:.35}}
 body.ch{padding-bottom:calc(126px + env(safe-area-inset-bottom))}
+.rz{font-size:11.5px;color:var(--nut);margin:10px 0 0}
+.rz button{font-size:11.5px;color:var(--mut);text-decoration:underline;padding:0}
 .sais{border-left:3px solid var(--wgt);margin-bottom:6px}
 .sais h3{font-size:14px;margin:0 0 4px}
 .sais p{font-size:12.5px;color:var(--ink2);margin:0}
@@ -208,6 +210,81 @@ body.ch{padding-bottom:calc(126px + env(safe-area-inset-bottom))}
 .row input[type=date]{border:1px solid var(--line);border-radius:3px;background:var(--card);font:inherit;
 font-size:13px;padding:7px 9px;color:var(--ink);min-width:150px}
 
+.extabs{display:flex;gap:5px;margin-bottom:12px}
+.extabs .tog{flex:1;padding:8px 2px;font-size:12px}
+
+/* ── schéma des muscles recrutés ───────────────────────────────── */
+.anatbox{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:10px 12px 6px;margin:0 0 10px}
+.anat{display:block;width:100%;max-width:252px;margin:0 auto;height:auto}
+.anat .sil path{fill:#E4E2DA;stroke:#CFCDC4;stroke-width:.8}
+.anat .axe{fill:#E4E2DA}
+.anat .mu{fill:#DEDCD3;stroke:#CBC9C0;stroke-width:.6}
+.anat .mu.s{fill:#EFA596;stroke:#DF8A78}
+.anat .mu.p{fill:var(--gym);stroke:#B5331F}
+.anat .ablig{fill:none;stroke:#C4C2B8;stroke-width:.7}
+.anatvue{display:flex;max-width:252px;margin:2px auto 0}
+.anatvue span{flex:1;text-align:center;font-size:10px;color:var(--mut);letter-spacing:.08em}
+.anatleg{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--ink2);margin:7px 0 3px;line-height:1.4}
+.anatleg .d{width:8px;height:8px;border-radius:2px;flex:0 0 auto;position:relative;top:1px}
+.anatleg .d.p{background:var(--gym)}.anatleg .d.s{background:#EFA596}
+
+/* ── fiche technique : exécution et sécurité ───────────────────── */
+.fiche{margin:0 0 12px}
+.fiche h4{font-size:11px;color:var(--mut);letter-spacing:.06em;margin:12px 0 5px;font-weight:650}
+.fiche ol{margin:0;padding-left:17px}
+.fiche li{font-size:12.5px;color:var(--ink2);margin-bottom:4px;line-height:1.45}
+.fiche .secu{border-left:2px solid var(--warn);padding:7px 0 7px 10px;font-size:12.5px;color:var(--ink2);margin:6px 0 0}
+.fiche .secu b{color:var(--warn);font-size:12.5px}
+
+/* ── courbe de progression par exercice ────────────────────────── */
+.prog{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:12px;margin:0 0 10px}
+.prog .ph{display:flex;align-items:baseline;justify-content:space-between;flex-direction:row;padding:0;margin-bottom:2px}
+.prog .ph b{font-size:13px}
+.prog .ph i{font-size:11.5px;color:var(--mut)}
+.prog .ph i.up{color:var(--nut);font-weight:650}
+.prog .ph i.dn{color:var(--warn);font-weight:650}
+.courbe{width:100%;height:104px;display:block;margin-top:6px;overflow:visible}
+.courbe .gr{stroke:var(--line);stroke-width:1}
+.courbe .ar{fill:var(--gym);opacity:.09}
+.courbe .ln{fill:none;stroke:var(--gym);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.courbe .pt{fill:var(--card);stroke:var(--gym);stroke-width:1.5}
+.courbe .pt.last{fill:var(--gym)}
+.courbe text{font-size:9.5px;fill:var(--mut);font-variant-numeric:tabular-nums}
+.courbe text.v{font-size:10.5px;fill:var(--ink);font-weight:700}
+.progpied{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:5px}
+.vide{font-size:12.5px;color:var(--mut);margin:8px 0 2px}
+
+/* ── questionnaire d'accueil (nouveaux utilisateurs seulement) ──── */
+.onb{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;
+padding:calc(22px + env(safe-area-inset-top)) 18px calc(26px + env(safe-area-inset-bottom))}
+.onbin{max-width:460px;margin:0 auto}
+.onbp{display:flex;gap:4px;margin-bottom:22px}
+.onbp i{flex:1;height:3px;border-radius:2px;background:var(--line)}
+.onbp i.on{background:var(--ink)}
+.onb h1{font-size:23px;letter-spacing:-.03em;margin:0 0 6px;line-height:1.2}
+.onb .sub{font-size:13.5px;color:var(--ink2);margin:0 0 20px}
+.onb .ch{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
+border-radius:4px;padding:13px 14px;margin-bottom:7px}
+.onb .ch b{display:block;font-size:14px}
+.onb .ch small{display:block;font-size:12px;color:var(--mut);margin-top:2px;line-height:1.4}
+.onb .ch.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.onb .ch.on small{color:rgba(255,255,255,.72)}
+.onb .nav2{display:flex;gap:8px;margin-top:20px}
+.onb .nav2 .cta{margin-top:0}
+.onb .back{flex:0 0 92px;background:var(--card);border:1px solid var(--line);color:var(--ink2);
+border-radius:3px;font-size:13px;font-weight:600}
+.onb .recap{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px;margin-bottom:14px}
+.onb .recap .row{padding:7px 0;border-top:1px solid var(--line)}
+.onb .recap .row:first-child{border-top:none}
+.onb .recap .row b{color:var(--ink);font-size:13px}
+.onb .skip{display:block;width:100%;text-align:center;font-size:12px;color:var(--mut);
+padding:12px 0 0;text-decoration:underline}
+.onb .recap .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.onb .recap .row small{color:var(--mut);font-size:12px;flex:0 0 auto}
+.onb .recap .row b{text-align:right}
+.onb .card.pad .row{display:flex;justify-content:space-between;align-items:center}
+body.onbon header,body.onbon main,body.onbon nav,body.onbon #chrono{display:none}
+
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);
 padding:8px 0 calc(10px + env(safe-area-inset-bottom));z-index:9}
 nav button{flex:1;font-size:10.5px;color:var(--mut);padding:4px 0;white-space:nowrap}
@@ -219,8 +296,11 @@ nav button.on{color:var(--ink);font-weight:650}
 <main id="main"></main>
 <div id="chrono"></div>
 <nav id="nav"></nav>
+<div id="onb"></div>
 <script src="data.js"></script>
+<script src="anat.js"></script>
 <script src="app.js"></script>
+<script src="onb.js"></script>
 <script src="ui.js"></script>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
