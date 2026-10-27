@@ -5,7 +5,7 @@ const BLANK = {
   foodEdits:{}, foodAdd:{}, plan:null, charges:{}, logs:{}, runs:{}, weights:[],
   extras:{}, supps:{}, padel:{}, skipped:{}, apurna:{}, pw:{}, stock:{}, shop:{},
   done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, perso:[], suppOff:{}, reel:{},
-  sets:{}, phase:"p1", offset:0,
+  sets:{}, phase:"p1", offset:0, onb:null, minKcal:0,
 };
 let S = load();
 if (!S.pw) S.pw = {};
@@ -31,6 +31,17 @@ if (!S.migr.muscleup) {
 }
 if (!S.races) S.races = {};
 if (!S.reset) S.reset = {};
+/* Le questionnaire d'accueil ne s'adresse qu'aux nouveaux arrivants.
+   Sur un téléphone qui porte déjà des données, on pose le verrou une
+   fois pour toutes : il ne pourra jamais s'ouvrir, même après une
+   remise à zéro partielle. */
+if (!S.migr.onb0) {
+  S.migr.onb0 = 1;
+  if (!S.onb && (Object.keys(S.logs || {}).length || (S.weights || []).length ||
+                 Object.keys(S.seance || {}).length || S.week))
+    S.onb = { existant: 1 };
+  save();   // le verrou doit survivre même si rien d'autre n'est enregistré ensuite
+}
 // on ne garde les séries cochées que 21 jours : c'est de l'état de séance, pas de l'historique
 Object.keys(S.sets).forEach((k) => { if (k.slice(0, 10) < daysAgo(21)) delete S.sets[k]; });
 let FOODS = {}, PLAN = {};
@@ -266,6 +277,67 @@ function avancement(day, sess) {
   return { exTot: l.length, exFaits, sTot, sFaites };
 }
 
+/* ═════════ HISTORIQUE PAR EXERCICE ═════════ */
+/* Une valeur par séance validée, pour tracer la progression depuis le début.
+
+   Pour un exercice chargé, l'indicateur est le 1RM estimé (formule d'Epley :
+   charge × (1 + reps/30)) sur la meilleure série. Il résume charge ET
+   répétitions en un seul nombre : passer de 5 à 7 reps à charge égale se voit,
+   là où une courbe de charge seule resterait plate pendant des semaines.
+
+   Pour un exercice au poids du corps, c'est le total de répétitions — ou de
+   secondes quand la fourchette est manifestement un temps (gainage, suspension). */
+
+/* Poids de corps retenu pour les mouvements lestés. On prend le dernier
+   relevé et on l'applique à TOUTE l'historique, volontairement : une courbe
+   qui monterait parce que tu as repris du poids ne dirait rien de ta force.
+   Constante identique partout, c'est la forme de la courbe qui informe. */
+function poidsCorps() {
+  const w = S.weights;
+  return w && w.length ? w[w.length - 1].kg : 75;
+}
+
+function histoExo(ex) {
+  const raw = [];
+  Object.keys(S.logs).sort().forEach((k) => {
+    const e = S.logs[k][ex.id];
+    if (!e || !e.reps || !e.reps.length) return;
+    /* Les séances d'avant le suivi série par série ne stockent qu'une charge
+       unique. Sans ce repli, elles comptaient pour zéro et la courbe partait
+       du plancher — une progression inventée de toutes pièces. */
+    const kgs = (e.kgs && e.kgs.length) ? e.kgs : e.reps.map(() => e.kg || 0);
+    raw.push({ d: k.slice(0, 10), e: e, kgs: kgs });
+  });
+
+  const f = typeof fiche === "function" ? fiche(ex) : null;
+  const pdc = !!(f && f.pdc);                 // tractions, dips : le corps compte
+  const corps = pdc ? poidsCorps() : 0;
+
+  /* Trois familles de courbes :
+       — lesté sur poids du corps  → 1RM estimé, corps inclus
+       — chargé classique          → 1RM estimé sur la barre ou la machine
+       — poids du corps pur, ou temps → total de répétitions ou de secondes */
+  const charge = pdc ||
+    (!(ex.bw && !ex.inc) && raw.some((x) => Math.max.apply(null, x.kgs.concat([0])) > 0));
+  const u = charge ? "kg" : (ex.r && ex.r[1] >= 25 ? "s" : "reps");
+
+  const pts = raw.map((x) => {
+    let v = 0;
+    if (charge) {
+      x.kgs.forEach((kg, i) => {
+        const z = (corps + kg) * (1 + (x.e.reps[i] || 0) / 30);
+        if (z > v) v = z;
+      });
+      v = Math.round(v * 10) / 10;
+    } else v = (x.e.reps || []).reduce((a, b) => a + b, 0);
+    return { d: x.d, v: v, kg: Math.max.apply(null, x.kgs.concat([0])),
+             rp: Math.max.apply(null, (x.e.reps || []).concat([0])) };
+  });
+
+  return { pts: pts, u: u, charge: charge, pdc: pdc, corps: corps,
+           reset: (S.reset || {})[ex.id] || null };
+}
+
 /* ═════════ CALENDRIER DE SAISON ═════════ */
 /* Trois dates suffisent : la fin de la sèche, l'Hyrox, le marathon.
    Tout le reste se déduit en remontant depuis les courses. */
@@ -453,13 +525,17 @@ function alignPlan() {
   });
 }
 function applyAdjust(adj) {
-  const P = PHASES[S.phase], vise = baseTarget() + adj;
-  // plancher de sécurité : on ne descend pas en dessous du minimum de la phase
-  if (P.min && vise < P.min) S.offset = P.min - P.kcal;
+  const P = PHASES[S.phase], vise = baseTarget() + adj, m = plancher();
+  // plancher de sécurité : on ne descend pas en dessous du minimum
+  if (m && vise < m) S.offset = m - P.kcal;
   else S.offset = (S.offset || 0) + adj;
   alignPlan();
 }
-function auPlancher() { const P = PHASES[S.phase]; return !!(P.min && baseTarget() <= P.min); }
+/* Le plancher calorique dépend du gabarit. Celui de PHASES est calibré sur
+   un corps précis ; dès qu'un utilisateur a renseigné le sien, c'est le
+   plancher proportionnel qui fait foi. */
+function plancher() { return S.minKcal || PHASES[S.phase].min || 0; }
+function auPlancher() { const m = plancher(); return !!(m && baseTarget() <= m); }
 
 /* ═════════ COURSES (calculées depuis le plan) ═════════ */
 
@@ -669,14 +745,14 @@ DAYS.forEach((d) => (DEFAULT_PROGRAM[d].ex || []).forEach((e) => {
   EXCAT[e.id] = e;
   (e.alt || []).forEach((v) => {
     EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc,
-                                         r:v.r || e.r, s:v.s || e.s, note:v.note || "", alt:null });
+                                         r:v.r || e.r, s:v.s || e.s, note:v.note || "", alt:null, base:e.id });
   });
 }));
 [].concat(BONUS.ex || [], EXTRAS).forEach((e) => {
   EXCAT[e.id] = e;
   (e.alt || []).forEach((v) => {
     EXCAT[v.id] = Object.assign({}, e, { id:v.id, n:v.n, kg:v.kg, inc:v.inc || e.inc,
-                                         r:v.r || e.r, s:v.s || e.s, note:v.note || "", alt:null });
+                                         r:v.r || e.r, s:v.s || e.s, note:v.note || "", alt:null, base:e.id });
   });
 });
 const EXALL = Object.keys(EXCAT).sort((x, y) => EXCAT[x].n.localeCompare(EXCAT[y].n));

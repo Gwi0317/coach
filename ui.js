@@ -1,8 +1,111 @@
 /* ═════════ ÉTAT D'AFFICHAGE ═════════ */
 
-let V = { tab:"seance", day: todayKey(), openEx:null, openMeal:null, picker:null, editFood:null, tmp:{} };
+let V = { tab:"seance", day: todayKey(), openEx:null, openMeal:null, picker:null, editFood:null, tmp:{}, exTab:"series" };
 
 /* Ce qu'il faut battre aujourd'hui, et ce qui a été fait la dernière fois */
+/* ═════════ PANNEAU TECHNIQUE ═════════ */
+/* Schéma des muscles recrutés, points d'exécution, et l'erreur qui blesse. */
+function panneauTechnique(ex) {
+  const f = fiche(ex);
+  if (!f) return '<p class="vide">Pas encore de fiche technique pour cet exercice.</p>';
+  let h = "";
+  if ((f.p && f.p.length) || (f.s && f.s.length)) h += schemaMuscles(f.p, f.s);
+  h += '<div class="fiche">';
+  if (f.tech && f.tech.length) {
+    h += "<h4>EXÉCUTION</h4><ol>" + f.tech.map((t) => "<li>" + esc(t) + "</li>").join("") + "</ol>";
+  }
+  if (f.secu) h += '<p class="secu"><b>Pour ne pas te blesser.</b> ' + esc(f.secu) + "</p>";
+  return h + "</div>";
+}
+
+/* ═════════ PANNEAU PROGRESSION ═════════ */
+/* Une courbe par exercice, tracée depuis la première séance validée. */
+function panneauProgression(ex) {
+  const H = histoExo(ex), n = H.pts.length;
+  const unite = H.u === "kg" ? "kg" : H.u === "s" ? "s" : "reps";
+
+  if (!n) return '<p class="vide">Aucune séance validée pour cet exercice. Valide-le une première fois et la courbe démarre.</p>';
+  if (n === 1) return '<p class="vide">Une seule séance enregistrée, à ' + fr(H.pts[0].v) + " " + unite +
+                      ". Il en faut une deuxième pour tracer une évolution.</p>";
+
+  const W = 300, HT = 104, T = 16, B = 18, x0 = 4, x1 = W - 4, y0 = T, y1 = HT - B;
+  const vs = H.pts.map((p) => p.v);
+  let mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs);
+  if (mx === mn) { mx = mn + 1; mn = Math.max(0, mn - 1); }
+  const marge = (mx - mn) * 0.18; mn -= marge; mx += marge;
+  const X = (i) => x0 + (x1 - x0) * i / (n - 1);
+  const Y = (v) => y1 - (y1 - y0) * (v - mn) / (mx - mn);
+
+  const pts = H.pts.map((p, i) => X(i).toFixed(1) + " " + Y(p.v).toFixed(1));
+  const ligne = "M " + pts.join(" L ");
+  const aire = ligne + " L " + X(n - 1).toFixed(1) + " " + y1 + " L " + x0 + " " + y1 + " Z";
+
+  let svg = '<svg class="courbe" viewBox="0 0 ' + W + " " + HT + '" preserveAspectRatio="none">' +
+            '<line class="gr" x1="' + x0 + '" y1="' + y0 + '" x2="' + x1 + '" y2="' + y0 + '"/>' +
+            '<line class="gr" x1="' + x0 + '" y1="' + y1 + '" x2="' + x1 + '" y2="' + y1 + '"/>' +
+            '<path class="ar" d="' + aire + '"/><path class="ln" d="' + ligne + '"/>';
+
+  /* Repère de remise à zéro : la comparaison redémarre là, autant que ça se voie. */
+  if (H.reset) {
+    let k = -1;
+    H.pts.forEach((p, i) => { if (k < 0 && p.d >= H.reset) k = i; });
+    if (k > 0) {
+      const xr = ((X(k - 1) + X(k)) / 2).toFixed(1);
+      svg += '<line class="gr" x1="' + xr + '" y1="' + y0 + '" x2="' + xr + '" y2="' + y1 +
+             '" stroke-dasharray="3 3"/>';
+    }
+  }
+
+  /* Au-delà d'une quinzaine de séances les points se chevauchent : on ne garde que les bouts. */
+  const tous = n <= 14;
+  H.pts.forEach((p, i) => {
+    if (!tous && i && i < n - 1) return;
+    svg += '<circle class="pt' + (i === n - 1 ? " last" : "") + '" cx="' + X(i).toFixed(1) +
+           '" cy="' + Y(p.v).toFixed(1) + '" r="' + (i === n - 1 ? 3.4 : 2.4) + '"/>';
+  });
+
+  /* La valeur du jour se place dans la marge haute, jamais à côté du dernier
+     point : le tracé arrive par la droite et l'étiquette lui tombait dessus. */
+  svg += '<text class="v" x="' + x1 + '" y="11" text-anchor="end">' +
+         fr(H.pts[n - 1].v) + " " + unite + "</text></svg>";
+
+  const prem = H.pts[0], der = H.pts[n - 1], ecart = Math.round((der.v - prem.v) * 10) / 10;
+  const sens = ecart > 0 ? "up" : ecart < 0 ? "dn" : "";
+  const titre = H.pdc ? "1RM estimé, corps compris"
+              : H.charge ? "1RM estimé"
+              : H.u === "s" ? "Total de secondes" : "Total de répétitions";
+  const delta = ecart === 0 ? "stable depuis le début"
+              : (ecart > 0 ? "+" : "") + fr(ecart) + " " + unite + " depuis le début";
+
+  let h = '<div class="prog"><div class="ph"><b>' + titre + "</b><i class=\"" + sens + '">' + delta +
+          "</i></div>" + svg +
+          '<div class="progpied"><span>' + dateFr(prem.d) + "</span><span>" + n + " séances</span><span>" +
+          dateFr(der.d) + "</span></div></div>";
+
+  /* Comment lire la charge d'une séance : lest seul pour un mouvement au
+     poids du corps, charge brute sinon. */
+  const dit = (p) => (H.pdc
+      ? (p.kg ? "+" + fr(p.kg) + " kg" : "poids du corps")
+      : fr(p.kg) + " kg") + " × " + p.rp;
+
+  if (H.charge) {
+    h += '<p class="small">Au départ <b>' + dit(prem) + "</b>, aujourd\'hui <b>" + dit(der) +
+         "</b>. Le 1RM estimé résume charge et répétitions en un seul nombre : gagner des " +
+         "répétitions à charge égale fait monter la courbe.</p>";
+    if (H.pdc)
+      h += '<p class="small">Calculé avec ' + fr(H.corps) + " kg de poids de corps, appliqués à toute " +
+           "l\'historique. Si on prenait ton poids de chaque séance, la courbe descendrait " +
+           "pendant une sèche alors que tu ne perds aucune force.</p>";
+  } else {
+    h += '<p class="small">Au départ <b>' + fr(prem.v) + " " + unite + "</b>, aujourd\'hui <b>" +
+         fr(der.v) + " " + unite + "</b>, toutes séries confondues.</p>";
+  }
+
+  if (H.reset) h += '<p class="small">Trait pointillé : la remise à zéro du ' + dateFr(H.reset) +
+                    ". Avant et après ne se comparent pas directement.</p>";
+  return h;
+}
+
 function objLine(ex, kg, done) {
   const cible = ex.s + " \u00d7 " + ex.r[1] + (ex.bw && !kg ? "" : " à " + fr(kg) + " kg");
   const prec = dernierLog(ex.id, true);
@@ -212,6 +315,17 @@ function viewSeance() {
       const kgs = V.tmp.kgs || (V.tmp.kgs = new Array(ex.s).fill(kg));
       const charge = !ex.bw || ex.inc > 0;
       h += '<div class="exbody">';
+
+      /* Trois entrées dans un exercice : ce qu'on fait, comment on le fait,
+         et où on en est. Elles cohabitent mal sur un même écran de téléphone. */
+      h += '<div class="extabs">' +
+           [["series", "Séries"], ["tech", "Technique"], ["prog", "Progression"]].map((t) =>
+             '<button class="tog' + (V.exTab === t[0] ? " on" : "") + '" data-act="extab" data-id="' +
+             t[0] + '">' + t[1] + "</button>").join("") + "</div>";
+
+      if (V.exTab === "tech") h += panneauTechnique(ex);
+      else if (V.exTab === "prog") h += panneauProgression(ex);
+      else {
       const base = EXBASE(d, ex);
       if (base && base.alt) {
         h += '<div class="vars"><small>Version du jour</small><div class="duo wrap">' +
@@ -238,6 +352,7 @@ function viewSeance() {
         ? '<p class="rz">Comparaisons repartent du ' + dateFr(S.reset[ex.id]) +
           ' · <button data-act="unreset" data-id="' + ex.id + '">annuler</button></p>'
         : '<button class="ghost" data-act="reset" data-id="' + ex.id + '">J\'ai changé l\'exécution — repartir de zéro</button>';
+      }
       h += "</div>";
     }
     h += "</div>";
@@ -461,7 +576,7 @@ function viewPoids() {
   if (tr) {
     h += '<h2>Ajustement</h2><div class="card pad"><p>' + tr.msg + "</p>";
     if (tr.adj < 0 && auPlancher()) {
-      h += '<p class="small warn">Tu es au plancher de ' + PHASES[S.phase].min + " kcal. Ne descends pas plus bas : à ce stade, c'est la dépense qu'on augmente (une marche de 30 min par jour), pas l'assiette qu'on coupe.</p>";
+      h += '<p class="small warn">Tu es au plancher de ' + plancher() + " kcal. Ne descends pas plus bas : à ce stade, c'est la dépense qu'on augmente (une marche de 30 min par jour), pas l'assiette qu'on coupe.</p>";
     } else if (tr.adj) {
       h += '<button class="cta wgt" data-act="applyadj" data-id="' + tr.adj + '">Réécrire mes portions (' + (tr.adj > 0 ? "+" : "") + tr.adj + " kcal)</button>" +
            '<p class="small">Les féculents de la semaine sont recalculés, et la liste de courses suit.</p>';
@@ -643,6 +758,18 @@ function chronoPeint() {
 const TABS = [["seance","Séance"],["chrono","Chrono"],["repas","Repas"],["poids","Poids"],["courses","Courses"],["reglages","Réglages"]];
 
 function render() {
+  /* Le questionnaire d'accueil recouvre tout : un nouvel arrivant n'a rien
+     à faire dans une séance avant d'avoir dit ce qu'il venait chercher.
+     onbActif() est faux dès qu'il reste la moindre donnée. */
+  const onbEl = $("#onb");
+  if (onbActif()) {
+    onbEl.innerHTML = viewOnb();
+    document.body.classList.add("onbon");
+    return;
+  }
+  onbEl.innerHTML = "";
+  document.body.classList.remove("onbon");
+
   const d = V.day, sess = DEFAULT_PROGRAM[d];
   $("#head").innerHTML =
     '<div class="hrow"><b>' + LONG[d] + (d === todayKey() ? '<span> · aujourd\'hui</span>' : "") + "</b>" +
@@ -670,6 +797,39 @@ document.addEventListener("click", (e) => {
   const a = el.dataset.act, id = el.dataset.id, d = V.day;
   const sess = sessionFor(d) || {}, ex = sess.ex ? exList(sess).filter((x) => x.id === V.openEx)[0] : null;
 
+  /* ── Questionnaire d'accueil ── */
+  if (a.slice(0, 3) === "onb") {
+    const E = onbEtat(), q = ONBQ[E.i];
+    if (a === "onbrep") {
+      const [k, v] = id.split(".");
+      const Q = ONBQ.filter((x) => x.k === k)[0];
+      if (Q && Q.multi) {
+        let l = E.rep[k] || [];
+        /* « Rien à signaler » est exclusif des autres zones */
+        if (v === "rien") l = l.indexOf("rien") >= 0 ? [] : ["rien"];
+        else l = (l.indexOf(v) >= 0 ? l.filter((x) => x !== v) : l.concat([v])).filter((x) => x !== "rien");
+        E.rep[k] = l;
+      } else {
+        E.rep[k] = v;
+        E.i++;                       // choix unique : on enchaîne tout de suite
+      }
+    }
+    else if (a === "onbsuiv")  E.i++;
+    else if (a === "onbprec")  E.i = Math.max(0, E.i - 1);
+    else if (a === "onbnum+" || a === "onbnum-") {
+      const Q = ONBQ.filter((x) => x.k === id)[0] || {};
+      const pas = Q.pas || 1, cur = Number(E.rep[id] != null ? E.rep[id] : Q.def || 0);
+      E.rep[id] = Math.min(Q.max || 999, Math.max(Q.min || 0, cur + (a.slice(-1) === "+" ? pas : -pas)));
+    }
+    else if (a === "onbpasser") { onbPasser(); V.onb = null; }
+    else if (a === "onbgo") {
+      onbGenere(E.rep);
+      V.onb = null; V.tab = "seance"; V.day = todayKey();
+      rebuild();
+    }
+    render(); return;
+  }
+
   if (a === "tab") { V.tab = id; V.openEx = V.openMeal = V.picker = null; V.editFood = null; V.tmp = {}; }
   else if (a === "day") { V.day = id; V.openEx = V.openMeal = V.picker = null; V.tmp = {}; }
   else if (a === "padel") { S.padel[d] = !S.padel[d]; save(); }
@@ -691,7 +851,8 @@ document.addEventListener("click", (e) => {
                         : "Aucun créneau libre. Mets un jour en repos dans Ma semaine, puis réessaie.";
   }
   else if (a === "oublidette") { S.dette = S.dette.filter((x) => x.id !== id); save(); V.tmp.semMsg = "Séance abandonnée pour cette fois."; }
-  else if (a === "openex") { V.openEx = V.openEx === id ? null : id; V.tmp = {}; }
+  else if (a === "openex") { V.openEx = V.openEx === id ? null : id; V.tmp = {}; V.exTab = "series"; }
+  else if (a === "extab") { V.exTab = id; }
   else if (a === "setdone" && ex) {
     const k = +id, on = toggleSet(d, ex.id, k, ex.s);
     // cocher une série lance la pause, sauf sur la dernière : il n'y a plus rien à attendre
@@ -865,6 +1026,11 @@ document.addEventListener("change", (e) => {
   const el = e.target; if (!el.dataset || !el.dataset.fld) return;
   const v = parseFloat(String(el.value).replace(",", ".")), fld = el.dataset.fld, id = el.dataset.id, d = V.day;
   if (isNaN(v) || v < 0) { render(); return; }
+  if (fld === "onbnum") {
+    const Q = ONBQ.filter((x) => x.k === id)[0] || {};
+    onbEtat().rep[id] = Math.min(Q.max || 999, Math.max(Q.min || 0, v));
+    render(); return;
+  }
   if (fld === "q") { const [mi, fi] = id.split(".").map(Number); editPlan((p) => { p[d][mi].f[fi][1] = v; }); }
   else if (fld === "rk" || fld === "rp") {
     const k = dayStamp(d); S.reel[k] = S.reel[k] || { kcal:0, p:0 };

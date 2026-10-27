@@ -286,6 +286,34 @@ const EXTRAS = [
   { id:"gainlat",   n:"Gainage latéral",         s:3, r:[20,45], kg:0,  inc:0,   rest:45,  bw:1, tier:3, note:"En secondes, de chaque côté" },
   { id:"hip2",      n:"Hip thrust (force)",      s:3, r:[10,12], kg:35, inc:5,   rest:90,  tier:3 },
   { id:"sdt_pause", n:"Soulevé de terre pause",  s:4, r:[3,5],   kg:80, inc:5,   rest:180, tier:1, note:"1 s d'arrêt sous le genou" },
+
+  /* ── Poids du corps ────────────────────────────────────────────────
+     Sans ces exercices, quelqu'un qui s'entraîne chez lui sans matériel
+     repart avec une séance vide : les mouvements de salle se filtrent
+     tous. Ils progressent en répétitions, pas en charge. */
+  { id:"pompes",     n:"Pompes",                     s:4, r:[10,20], kg:0, inc:0, rest:75, bw:1, tier:1,
+    note:"Mains sous les épaules, corps gainé d'un bloc",
+    alt:[{ id:"pompes_dec", n:"Pompes pieds surélevés", kg:0, inc:0, r:[8,15],
+           note:"Plus de charge sur le haut des pectoraux, sans matériel" },
+         { id:"pompes_gen", n:"Pompes sur les genoux", kg:0, inc:0, r:[10,20],
+           note:"La version qui permet de faire des séries propres quand les pompes complètes ne passent pas encore" }] },
+  { id:"dips_banc",  n:"Dips entre deux appuis",     s:3, r:[8,15],  kg:0, inc:0, rest:75, bw:1, tier:2,
+    note:"Deux chaises, un canapé, le bord d'une table" },
+  { id:"pompes_pike",n:"Pompes piquées",             s:3, r:[6,12],  kg:0, inc:0, rest:90, bw:1, tier:1,
+    note:"Bassin haut, tête vers le sol : c'est le développé militaire du poids du corps" },
+  { id:"rowing_aus", n:"Tirage australien",          s:4, r:[8,15],  kg:0, inc:0, rest:90, bw:1, tier:1,
+    note:"Sous une table solide ou une barre basse. Plus les pieds sont loin, plus c'est dur" },
+  { id:"superman",   n:"Extension lombaire au sol",  s:3, r:[12,15], kg:0, inc:0, rest:45, bw:1, tier:3,
+    note:"À plat ventre, on décolle buste et cuisses. Lent, sans à-coups" },
+  { id:"squat_pdc",  n:"Squat au poids du corps",    s:4, r:[15,25], kg:0, inc:0, rest:60, bw:1, tier:1,
+    alt:[{ id:"squat_bul", n:"Squat bulgare", kg:0, inc:0, r:[8,15],
+           note:"Pied arrière sur une chaise. Une jambe à la fois : la charge double sans matériel" }] },
+  { id:"fentes_pdc", n:"Fentes au poids du corps",   s:3, r:[10,16], kg:0, inc:0, rest:60, bw:1, tier:2,
+    note:"Par jambe. Genou arrière qui frôle le sol" },
+  { id:"pont",       n:"Pont fessier au sol",        s:3, r:[12,20], kg:0, inc:0, rest:45, bw:1, tier:2,
+    alt:[{ id:"pont_uni", n:"Pont fessier une jambe", kg:0, inc:0, r:[8,15] }] },
+  { id:"chaise",     n:"Chaise contre le mur",       s:3, r:[30,60], kg:0, inc:0, rest:60, bw:1, tier:3,
+    note:"En secondes. Cuisses à l'horizontale, dos plaqué" },
 ];
 
 /* ═════════ PHASES ═════════ */

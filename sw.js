@@ -1,5 +1,5 @@
-const CACHE = "coach-v2";
-const FILES = ["./", "./index.html", "./data.js", "./app.js", "./ui.js",
+const CACHE = "coach-v3";
+const FILES = ["./", "./index.html", "./data.js", "./anat.js", "./app.js", "./onb.js", "./ui.js",
                "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
