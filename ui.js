@@ -695,6 +695,15 @@ function viewReglages() {
        '<button class="ghost" data-act="export">Exporter mes données</button>' +
        '<button class="ghost" data-act="resetplan">Remettre le plan de repas d\'origine</button>' +
        '<button class="ghost danger" data-act="wipe">Tout effacer</button></div>';
+
+  /* Savoir quelle version tourne vraiment. Sans ça, impossible de distinguer
+     « mes fichiers ne sont pas partis » de « mon téléphone garde l'ancienne ». */
+  h += '<h2>Version</h2><div class="card pad">' +
+       '<div class="row"><span>Version installée</span><b>' + VERSION + "</b></div>" +
+       '<div class="row"><span>Mise en ligne</span><b>' + VERSION_DATE + "</b></div>" +
+       '<button class="ghost" data-act="maj">Forcer la mise à jour</button>' +
+       '<p class="small">Si le numéro ne correspond pas à la dernière version envoyée sur GitHub, ' +
+       "c'est le téléphone qui garde l'ancienne : ce bouton vide le cache et recharge.</p></div>";
   return h;
 }
 
@@ -1002,6 +1011,15 @@ document.addEventListener("click", (e) => {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
     const u = URL.createObjectURL(blob), link = document.createElement("a");
     link.href = u; link.download = "coach-" + iso() + ".json"; link.click(); URL.revokeObjectURL(u);
+  }
+  else if (a === "maj") {
+    /* Vide tout ce qui peut retenir une ancienne version, puis recharge.
+       Tes données ne bougent pas : elles sont dans localStorage, pas dans le cache. */
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+      navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
+    if (window.caches && caches.keys) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k)));
+    setTimeout(() => location.reload(), 500);
+    return;
   }
   else if (a === "resetplan") { if (confirm("Remettre le plan de repas d'origine ?")) { S.plan = null; rebuild(); save(); } }
   else if (a === "wipe") { if (confirm("Effacer toutes tes données ?")) { S = JSON.parse(JSON.stringify(BLANK)); rebuild(); save(); } }

@@ -297,11 +297,13 @@ nav button.on{color:var(--ink);font-weight:650}
 <div id="chrono"></div>
 <nav id="nav"></nav>
 <div id="onb"></div>
-<script src="data.js"></script>
-<script src="anat.js"></script>
-<script src="app.js"></script>
-<script src="onb.js"></script>
-<script src="ui.js"></script>
+<!-- Le ?v= force le téléphone à retélécharger les scripts au lieu de ressortir
+     ceux qu'il a en cache. À incrémenter en même temps que VERSION dans data.js. -->
+<script src="data.js?v=3"></script>
+<script src="anat.js?v=3"></script>
+<script src="app.js?v=3"></script>
+<script src="onb.js?v=3"></script>
+<script src="ui.js?v=3"></script>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
 </script>
