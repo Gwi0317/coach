@@ -1,8 +1,8 @@
 /* ═════════ VERSION ═════════
    Affichée dans Réglages. À incrémenter à chaque envoi sur GitHub : c'est
    le seul moyen de voir du téléphone si la mise à jour est bien arrivée. */
-const VERSION = "3.0";
-const VERSION_DATE = "27 octobre 2026";
+const VERSION = "4.0";
+const VERSION_DATE = "28 octobre 2026";
 
 /* ═════════ CATALOGUE ALIMENTS ═════════
    Valeurs pour 100 g / 100 ml, relevées sur les captures Foodvisor.

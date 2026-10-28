@@ -216,12 +216,19 @@ font-size:13px;padding:7px 9px;color:var(--ink);min-width:150px}
 /* ── schéma des muscles recrutés ───────────────────────────────── */
 .anatbox{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:10px 12px 6px;margin:0 0 10px}
 .anat{display:block;width:100%;max-width:252px;margin:0 auto;height:auto}
-.anat .sil path{fill:#E4E2DA;stroke:#CFCDC4;stroke-width:.8}
-.anat .axe{fill:#E4E2DA}
-.anat .mu{fill:#DEDCD3;stroke:#CBC9C0;stroke-width:.6}
-.anat .mu.s{fill:#EFA596;stroke:#DF8A78}
-.anat .mu.p{fill:var(--gym);stroke:#B5331F}
-.anat .ablig{fill:none;stroke:#C4C2B8;stroke-width:.7}
+/* Corps uni volontairement : il sert de fond, et un dégradé dessus
+   ferait apparaître la couture entre les deux moitiés en miroir. Le
+   relief vient des muscles, qui sont le sujet. */
+.anat .sil path{fill:#E6E4DC;stroke:#C7C4BA;stroke-width:.9}
+.anat .axe{fill:#E6E4DC}
+.anat .mu{fill:url(#gRepos);stroke:#BDBAB0;stroke-width:.6}
+.anat .mu.s{fill:url(#gSec);stroke:#C96E58}
+.anat .mu.p{fill:url(#gPrim);stroke:#8E2414;stroke-width:.7}
+/* stries : le sens des fibres, à peine marqué sur un muscle au repos et
+   bien lisible sur un muscle allumé */
+.anat .fib{fill:none;stroke:#8A8678;stroke-width:.65;stroke-opacity:.3;stroke-linecap:round}
+.anat .mu.s+g .fib{stroke:#8E3E2C;stroke-opacity:.42}
+.anat .mu.p+g .fib{stroke:#6B1608;stroke-opacity:.5;stroke-width:.75}
 .anatvue{display:flex;max-width:252px;margin:2px auto 0}
 .anatvue span{flex:1;text-align:center;font-size:10px;color:var(--mut);letter-spacing:.08em}
 .anatleg{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--ink2);margin:7px 0 3px;line-height:1.4}
@@ -253,6 +260,23 @@ font-size:13px;padding:7px 9px;color:var(--ink);min-width:150px}
 .courbe text.v{font-size:10.5px;fill:var(--ink);font-weight:700}
 .progpied{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:5px}
 .vide{font-size:12.5px;color:var(--mut);margin:8px 0 2px}
+
+/* ── mouvement animé ───────────────────────────────────────────────── */
+.mouvbox{background:var(--card);border:1px solid var(--line);border-radius:4px;
+padding:8px 10px 4px;margin:0 0 10px}
+.mouv{display:block;width:100%;max-width:230px;margin:0 auto;height:auto}
+.mouv .os{fill:#D9D6CC;stroke:#B2AEA2;stroke-width:1.1;stroke-linejoin:round}
+.mouv .os.tr{fill:#CFCCC1}
+.mouv .os2{stroke:#B2AEA2;stroke-width:5;stroke-linecap:round}
+.mouv .tete{fill:#D9D6CC;stroke:#B2AEA2;stroke-width:1.1}
+.mouv .art{fill:#FBFAF7;stroke:#A8A49A;stroke-width:1}
+.mouv .mat{fill:var(--gym)}
+.mouv .sol{stroke:#C2BFB4;stroke-width:2;stroke-linecap:round}
+.mouv .banc{fill:#DCD9CF;stroke:#BFBBB0;stroke-width:1}
+.mouv .fixe{stroke:#8F8B80;stroke-width:4;stroke-linecap:round}
+.mouv .fixe2{stroke:#C2BFB4;stroke-width:3;stroke-linecap:round}
+.mouvpied{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);
+margin:2px 2px 4px}
 
 /* ── questionnaire d'accueil (nouveaux utilisateurs seulement) ──── */
 .onb{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;
@@ -299,11 +323,12 @@ nav button.on{color:var(--ink);font-weight:650}
 <div id="onb"></div>
 <!-- Le ?v= force le téléphone à retélécharger les scripts au lieu de ressortir
      ceux qu'il a en cache. À incrémenter en même temps que VERSION dans data.js. -->
-<script src="data.js?v=3"></script>
-<script src="anat.js?v=3"></script>
-<script src="app.js?v=3"></script>
-<script src="onb.js?v=3"></script>
-<script src="ui.js?v=3"></script>
+<script src="data.js?v=4"></script>
+<script src="anat.js?v=4"></script>
+<script src="mouv.js?v=4"></script>
+<script src="app.js?v=4"></script>
+<script src="onb.js?v=4"></script>
+<script src="ui.js?v=4"></script>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
 </script>

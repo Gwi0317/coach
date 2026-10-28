@@ -9,6 +9,14 @@ function panneauTechnique(ex) {
   const f = fiche(ex);
   if (!f) return '<p class="vide">Pas encore de fiche technique pour cet exercice.</p>';
   let h = "";
+
+  /* Le geste d'abord, les muscles ensuite : on comprend mieux ce qui
+     travaille quand on a vu la trajectoire. */
+  const M = mouvDe(ex);
+  if (M) h += '<div class="mouvbox">' + schemaMouv(M) +
+              '<div class="mouvpied"><span>' + esc(M.n) + "</span><span>" +
+              "trajectoire, en boucle</span></div></div>";
+
   if ((f.p && f.p.length) || (f.s && f.s.length)) h += schemaMuscles(f.p, f.s);
   h += '<div class="fiche">';
   if (f.tech && f.tech.length) {

@@ -93,8 +93,8 @@ const MF = {
    "M3.6 201C8 202 10.5 206 11.5 214C12 227 10.5 241 8.5 253" +
    "C7 261 5.5 265 4 265C3.6 243 3.6 219 3.6 201Z",
   biceps:
-   "M35 92C41 90 46 94 47.5 103C48.5 116 47.5 130 45.5 142" +
-   "C42 146 37.5 145 35.5 141C34 126 34 106 35 92Z",
+   "M35.5 93C40.5 91.5 45 95 46.5 103.5C47.5 116 46.5 129 44.5 140" +
+   "C41.5 143.5 37.5 143 35.5 139.5C34.5 125 34.5 106 35.5 93Z",
   avbras:
    "M36 150C42 148 47 151 49 158C50.5 172 49.5 190 47 204" +
    "C43.5 208 39 207 37 203C35.5 186 35 166 36 150Z",
@@ -114,9 +114,12 @@ const MF_ABLIG = "M-11.5 128H11.5M-11 144H11M-9.5 160H9.5";
 /* ── Muscles, vue de dos ───────────────────────────────────────────── */
 
 const MD = {
+  /* Le trapèze s'arrête avant le deltoïde. Tracé jusqu'à l'acromion comme
+     en anatomie, il formait une cape qui recouvrait l'épaule dès qu'il
+     était allumé, puisqu'un muscle actif passe au-dessus des autres. */
   trap:
-   "M2.5 57C13.5 58.5 26.5 63 38.5 72C34 77 27 81.5 21 87" +
-   "C16 94 10.5 106 6.5 120C4.5 134 3 142 2.5 146Z",
+   "M2.5 57C12 59 20 62.5 28 69C25.5 74.5 22 79 18.5 84" +
+   "C14 91 9.5 104 6 119C4.5 133 3 142 2.5 146Z",
   delt_p:
    "M30 73C37 73 43.5 78 46 87C47 95 45.5 102 42.5 108" +
    "C39 104 35 96 32 87C30.5 81 30 76 30 73Z",
@@ -128,8 +131,8 @@ const MD = {
    "C11 177 6 178 4.5 175C4 162 4 142 4.5 126" +
    "C5 120 8 116 12 114C20 111 29 110 34 112Z",
   triceps:
-   "M35 90C41 88 46 92 48 101C49 115 48 130 46 142" +
-   "C42.5 146 38 145 36 141C34.5 125 34 106 35 90Z",
+   "M35.5 91C40.5 89.5 45 93.5 46.5 102C47.5 116 46.5 129 44.5 140" +
+   "C41.5 143.5 37.5 143 35.5 139.5C34.5 124 34.5 105 35.5 91Z",
   avbras:
    "M36 150C42 148 47 151 49 158C50.5 172 49.5 190 47 204" +
    "C43.5 208 39 207 37 203C35.5 186 35 166 36 150Z",
@@ -150,6 +153,43 @@ const MD_LOMB =
  "M-10 148C-4 146 4 146 10 148C11.5 158 11 170 9 180" +
  "C4 184-4 184-9 180C-11 170-11.5 158-10 148Z";
 
+/* ── Stries musculaires ────────────────────────────────────────────────
+   Le sens des fibres de chaque muscle, en quelques traits. C'est ce qui
+   fait la différence entre une tache de couleur et une planche
+   d'anatomie : on lit dans quelle direction le muscle tire. Les traits
+   débordent volontairement — ils sont découpés à la forme du muscle. */
+
+const FIB_F = {
+  pecto:   "M4 74C14 74 26 77 34 81M4 82C14 82 25 83.5 34 84.5M4 90C14 90 24 88 33 86M4 98C14 98 23 93 32 89",
+  delt_a:  "M31 74C34 84 37 94 40 104M35 72C37 83 39 93 42 103M40 75C41 85 43 95 45 102",
+  delt_l:  "M42 77C43 88 43 100 42 110M45 81C45 92 45 103 44 109",
+  trap:    "M11 61C20 64 29 68 37 73M10 65C18 68 26 71 34 75",
+  obliq:   "M13 119C18 127 24 136 29 143M13 133C18 141 23 150 27 158M13 147C17 155 21 162 25 169M14 161C17 167 20 172 23 177",
+  quadri:  "M12 205C13 230 15 262 17 290M18 203C19 230 20 262 21 291M25 206C25 232 25 262 25 288M30 213C30 238 29 262 28 282",
+  adduct:  "M6 203C6 222 6 246 6 264M9.5 205C9.5 222 9.5 242 9 258",
+  biceps:  "M38 92C38 112 38 130 38 144M42 91C42 112 42 130 42 145M45.5 96C45.5 114 45.5 130 45 142",
+  avbras:  "M39 151C39 170 39 190 39 205M43 150C43 170 43 190 43 206M46.5 156C46.5 174 46.5 190 46 202",
+  mollets: "M10 301C10 318 10 336 10 350M15 299C15 318 15 338 15 352M20 304C20 320 20 336 20 347",
+};
+
+/* Grand droit : le refend central, plus les intersections horizontales */
+const FIB_ABDOS = "M0 112V178M-11.5 128H11.5M-11 144H11M-9.5 160H9.5";
+
+const FIB_D = {
+  trap:    "M5 61C14 63 25 68 35 73M4 75C12 78 20 83 27 89M3.5 91C9 95 15 102 20 110M3 109C7 115 10 123 13 132M2.8 127C4 133 5 140 6 146",
+  delt_p:  "M32 75C35 85 38 95 41 104M36 73C38 84 40 94 43 102M41 76C42 86 44 95 45 101",
+  rhomb:   "M6 83C12 87 18 92 24 97M6 93C11 97 16 102 21 107M6 103C9 106 13 110 17 114",
+  dorsaux: "M5.5 174C14 166 24 152 33 136M5 162C13 154 22 142 34 126M4.8 148C12 140 21 130 33 118M4.8 134C11 127 19 120 31 114M4.8 122C10 118 16 115 25 112",
+  triceps: "M38 92C38 112 38 130 38 144M42 91C42 112 42 130 42 145M45.5 97C45.5 114 45.5 130 45 141",
+  avbras:  "M39 151C39 170 39 190 39 205M43 150C43 170 43 190 43 206M46.5 156C46.5 174 46.5 190 46 202",
+  fessiers:"M6 187C13 193 21 200 29 208M6 197C12 203 19 210 25 216M6 207C10 211 15 216 20 221M7 216C10 219 13 222 16 224",
+  ischios: "M9 231C9 254 9 276 9 292M15 229C15 254 15 278 15 294M21 230C21 254 21 276 21 292M27 237C27 256 27 272 27 284",
+  mollets: "M10 301C10 318 10 336 10 350M15 299C15 318 15 338 15 352M20 304C20 320 20 336 20 347",
+};
+
+/* Lombaires : fibres verticales de part et d'autre du rachis */
+const FIB_LOMB = "M-6 148V182M6 148V182M0 146V184";
+
 /* ── Rendu ─────────────────────────────────────────────────────────── */
 
 /* Duplique une forme en miroir de l'autre côté de l'axe */
@@ -157,6 +197,52 @@ function mirror(d, cls) {
   const c = cls ? ' class="' + cls + '"' : "";
   return '<path' + c + ' d="' + d + '"/>' +
          '<path' + c + ' d="' + d + '" transform="scale(-1,1)"/>';
+}
+
+/* Un muscle : sa forme, puis ses fibres découpées à l'intérieur.
+   Le découpage laisse les traits de fibres déborder dans le code sans
+   jamais déborder à l'écran — bien plus simple que de les ajuster au
+   contour à la main. */
+function muscle(id, d, fib, cls) {
+  let o = '<path class="' + cls + '" d="' + d + '"/>';
+  if (fib) o += '<g clip-path="url(#cl_' + id + ')"><path class="fib" d="' + fib + '"/></g>';
+  return o;
+}
+
+/* Duplique un bloc entier en miroir : la forme ET ses fibres, ET son
+   découpage, qui suit la transformation. */
+function mirrorG(inner) {
+  return "<g>" + inner + '</g><g transform="scale(-1,1)">' + inner + "</g>";
+}
+
+/* Les dégradés et les découpes, déclarés une fois par schéma.
+   Les dégradés sont en objectBoundingBox : chacun s'ajuste tout seul à la
+   boîte du muscle qui l'utilise, ce qui donne le galbe sans avoir à
+   positionner quoi que ce soit muscle par muscle. */
+function defsAnat() {
+  const grad = (id, c0, c1) =>
+    '<radialGradient id="' + id + '" cx="0.38" cy="0.3" r="0.85">' +
+      '<stop offset="0" stop-color="' + c0 + '"/>' +
+      '<stop offset="1" stop-color="' + c1 + '"/>' +
+    "</radialGradient>";
+
+  let d = "<defs>" +
+    grad("gRepos", "#E8E6DE", "#CFCCC1") +
+    grad("gSec",   "#F6B6A6", "#DE8470") +
+    grad("gPrim",  "#E8604A", "#B4301C") +
+    "";
+
+  /* Une découpe par muscle, face et dos confondus : les identifiants sont
+     distincts puisque les deux vues ne partagent aucun muscle de forme. */
+  Object.keys(MF).forEach((k) => {
+    d += '<clipPath id="cl_f' + k + '"><path d="' + MF[k] + '"/></clipPath>';
+  });
+  Object.keys(MD).forEach((k) => {
+    d += '<clipPath id="cl_d' + k + '"><path d="' + MD[k] + '"/></clipPath>';
+  });
+  d += '<clipPath id="cl_abdos"><path d="' + MF_ABDOS + '"/></clipPath>' +
+       '<clipPath id="cl_lomb"><path d="' + MD_LOMB + '"/></clipPath>';
+  return d + "</defs>";
 }
 
 /* Classe CSS d'un muscle selon qu'il est moteur, secondaire ou au repos */
@@ -172,7 +258,7 @@ function figure(vue, prim, sec) {
      dessus du crâne au bassin, efface cette couture. Il s'arrête à l'entre-
      jambe pour laisser l'écart entre les deux jambes visible. */
   let o = '<g class="sil">' + mirror(SIL_CORPS) + mirror(SIL_BRAS) +
-          '<rect class="axe" x="-2" y="7" width="4" height="191"/></g>';
+          '<rect class="axe" x="-2" y="6" width="4" height="192"/></g>';
 
   /* Ordre de tracé : des couches profondes vers les couches de surface.
      Les muscles de l'axe médian ferment la liste — ils occupent le creux
@@ -189,16 +275,16 @@ function figure(vue, prim, sec) {
      Un muscle allumé est ainsi toujours au-dessus de la pile. */
   const rang = (id) => (prim.indexOf(id) >= 0 ? 2 : sec.indexOf(id) >= 0 ? 1 : 0);
   const couches = ordre.filter((id) => (id === "abdos" || id === "lomb") || M[id]);
+  const FIB = vue === "f" ? FIB_F : FIB_D;
+  const pre = vue === "f" ? "cl_f" : "cl_d";
+
   [0, 1, 2].forEach((r) => couches.forEach((id) => {
     if (rang(id) !== r) return;
     const c = mcls(id, prim, sec);
-    if (id === "abdos")      o += '<path class="' + c + '" d="' + MF_ABDOS + '"/>';
-    else if (id === "lomb")  o += '<path class="' + c + '" d="' + MD_LOMB + '"/>';
-    else                     o += mirror(M[id], c);
+    if (id === "abdos")      o += muscle("abdos", MF_ABDOS, FIB_ABDOS, c);
+    else if (id === "lomb")  o += muscle("lomb", MD_LOMB, FIB_LOMB, c);
+    else                     o += mirrorG(muscle(pre.slice(3) + id, M[id], FIB[id], c));
   }));
-
-  /* Les refends de la sangle abdominale, toujours par-dessus */
-  if (vue === "f") o += '<path class="ablig" d="' + MF_ABLIG + '"/>';
   return o;
 }
 
@@ -209,7 +295,7 @@ function schemaMuscles(prim, sec) {
   if (!prim.length && !sec.length) return "";
 
   const svg =
-    '<svg class="anat" viewBox="0 0 252 400" aria-hidden="true">' +
+    '<svg class="anat" viewBox="0 0 252 400" aria-hidden="true">' + defsAnat() +
       '<g transform="translate(62,8)">' + figure("f", prim, sec) + "</g>" +
       '<g transform="translate(190,8)">' + figure("d", prim, sec) + "</g>" +
     "</svg>" +
