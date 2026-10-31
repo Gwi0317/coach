@@ -1,8 +1,8 @@
 /* ═════════ VERSION ═════════
    Affichée dans Réglages. À incrémenter à chaque envoi sur GitHub : c'est
    le seul moyen de voir du téléphone si la mise à jour est bien arrivée. */
-const VERSION = "4.0";
-const VERSION_DATE = "28 octobre 2026";
+const VERSION = "4.1";
+const VERSION_DATE = "30 octobre 2026";
 
 /* ═════════ CATALOGUE ALIMENTS ═════════
    Valeurs pour 100 g / 100 ml, relevées sur les captures Foodvisor.
@@ -200,8 +200,11 @@ const DEFAULT_PROGRAM = {
     { id:"curlmart", n:"Curl marteau",               s:3, r:[10,12], kg:8,  inc:2,   rest:75,  tier:3 },
   ]},
   Mer: { id:"jambes", name:"Jambes", kind:"gym", tag:"Ne la saute pas", ex:[
-    { id:"squat",   n:"Pendule squat",                    s:3, r:[6,8],   kg:125, inc:2.5, rest:180, tier:1,
-      note:"3 séries en profondeur complète. La 4e ne passait plus, elle n'apportait rien",
+    /* Plafond à 6 répétitions : au-delà, les dernières reps coûtent plus
+       nerveusement qu'elles ne rapportent, et c'est là que la technique
+       part. Moins de répétitions à charge plus lourde, même tension. */
+    { id:"squat",   n:"Pendule squat",                    s:3, r:[4,6],   kg:125, inc:2.5, rest:180, tier:1,
+      note:"Jamais plus de 6. Boucle 3×6 propres et la charge monte : c'est elle qui progresse, pas le nombre de reps",
       alt:[{ id:"squat_bar", n:"Squat barre", kg:100, inc:5 }, { id:"presse", n:"Presse à cuisses", kg:180, inc:10 }] },
     { id:"sdtjt",   n:"Soulevé de terre jambes tendues",  s:3, r:[8,10],  kg:35,  inc:2.5, rest:120, tier:1,
       alt:[{ id:"sdtjt_b", n:"SDT jambes tendues barre", kg:60, inc:5 }] },
@@ -209,7 +212,9 @@ const DEFAULT_PROGRAM = {
     { id:"legcurl", n:"Leg curl assis",                   s:3, r:[10,12], kg:35,  inc:5,  rest:75,  tier:2,
       alt:[{ id:"legcurl_a", n:"Leg curl allongé", kg:30, inc:5 }] },
     { id:"hip",     n:"Hip thrust",                       s:3, r:[10,12], kg:35,  inc:5,  rest:90,  tier:2,
-      alt:[{ id:"hip_b", n:"Hip thrust barre", kg:60, inc:10 }] },
+      alt:[{ id:"hip_b", n:"Hip thrust barre", kg:60, inc:10 },
+           { id:"hip_pan", n:"Multi Hip Panatta, extension", kg:25, inc:5, r:[10,12],
+             note:"Réglage EXTENSION, pas abduction. Par jambe : compte 10 à 12 de chaque côté" }] },
     { id:"mollets", n:"Mollets debout",                   s:4, r:[12,15], kg:140, inc:10, rest:60,  tier:3,
       note:"Pause 1 s en bas, 1 s en haut. 4 séries : 3 ne suffisaient pas à les débloquer",
       alt:[{ id:"mollets_a", n:"Mollets assis", kg:60, inc:5 }] },

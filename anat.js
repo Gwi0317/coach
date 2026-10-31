@@ -657,6 +657,18 @@ const EXINFO = {
           "Même temps des deux côtés."],
     secu:"Si l'épaule d'appui fatigue avant les obliques, passe en appui sur le genou plutôt que de tenir en mauvaise position." },
 
+  /* Multi Hip : même fonction que le hip thrust — extension de hanche —
+     mais debout, sur une jambe, et avec les fléchisseurs étirés au départ.
+     Les obliques et les lombaires travaillent en plus pour tenir le bassin
+     droit, ce que la version allongée ne demande pas. */
+  hip_pan: { p:["fessiers"], s:["ischios","lomb","obliq","abdos"],
+    tech:["Règle la machine sur l'EXTENSION de hanche : le coussin derrière la cuisse, pas sur le côté.",
+          "Debout bien droit, mains sur les poignées, appui franc sur la jambe au sol.",
+          "Pousse la cuisse vers l'arrière avec le fessier, jusqu'à la ligne du corps — pas au-delà.",
+          "Retiens le retour : c'est la phase où le fessier travaille le plus longtemps.",
+          "Compte tes répétitions par jambe, et fais les deux côtés avant de reposer."],
+    secu:"Si le bassin bascule ou que tu cambres pour aller plus loin, l'amplitude vient du bas du dos et plus du fessier. Réduis la charge plutôt que l'amplitude." },
+
   hip2: { p:["fessiers"], s:["ischios","abdos"],
     tech:["Mêmes consignes que le hip thrust du mercredi.",
           "Ligne droite épaules-hanches-genoux en haut.",

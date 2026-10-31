@@ -143,6 +143,14 @@ const MOUV = {
     a:{ tronc:-24, hanche:58,  genou:98, cheville:0, epaule:28, coude:34 },
     b:{ tronc:-46, hanche:100, genou:100, cheville:0, epaule:50, coude:34 } },
 
+  /* Extension de hanche debout : même fonction que le hip thrust, mais la
+     cuisse part de l'avant et recule. Une seule jambe est tracée — en vue
+     de profil, la jambe d'appui serait de toute façon masquée. */
+  hip_debout: { n:"Extension de hanche debout", anc:"fixe", mat:"", sol:1, dur:3.0,
+    ancX:104, ancY:100,
+    a:{ tronc:4, hanche:32, genou:14, cheville:4,  epaule:44, coude:40 },
+    b:{ tronc:4, hanche:-24, genou:6, cheville:-6, epaule:44, coude:40 } },
+
   shrug: { n:"Haussement d'épaules", anc:"cheville", mat:"halteres", sol:1, dur:2.2,
     a:{ tronc:2, hanche:0, genou:4, cheville:2, epaule:0, coude:4 },
     b:{ tronc:2, hanche:0, genou:4, cheville:2, epaule:0, coude:4 }, epY:[0, 9] },
@@ -191,7 +199,7 @@ const EXMOUV = {
   presse:"presse", legext:"presse", legcurl:"charniere", legcurl_a:"charniere",
   sdt:"charniere", sdt_pause:"charniere", sdtjt:"sdtjt", sdtjt_b:"sdtjt",
   fentes:"fente", fentes_pdc:"fente",
-  hip:"hip", hip_b:"hip", hip2:"hip", pont:"hip", pont_uni:"hip",
+  hip:"hip", hip_b:"hip", hip2:"hip", pont:"hip", pont_uni:"hip", hip_pan:"hip_debout",
   mollets:"mollets", mollets_a:"mollets", b_mollets:"mollets",
   chaise:"presse",
 
