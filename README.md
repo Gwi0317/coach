@@ -1,6 +1,8 @@
 # Coach — l'app
 
 Site statique installable sur l'écran d'accueil. Aucune donnée ne sort du téléphone.
+Version **5.0** : l'application ne s'occupe plus que de l'entraînement et du poids.
+L'alimentation se suit ailleurs.
 
 ## Installer
 
@@ -10,154 +12,134 @@ Ouvre-la dans **Safari** → Partager → **Sur l'écran d'accueil**.
 
 ## Mettre à jour
 
-Remplace le ou les fichiers modifiés sur GitHub (Add file → Upload files, ça écrase),
-puis ferme et rouvre l'app avec du réseau.
+Remplace les fichiers sur GitHub (Add file → Upload files, ça écrase), puis ferme et
+rouvre l'app avec du réseau. **Réglages** affiche le numéro de version qui tourne
+réellement sur le téléphone ; s'il n'a pas changé, le bouton « Forcer la mise à jour »
+vide le cache et recharge. Les données ne bougent pas : elles sont dans le stockage du
+téléphone, pas dans le cache.
 
 ## Ce que fait l'app
 
-**Séance** — les exercices du jour avec tes charges réelles. Tu saisis tes reps série par
-série, l'app calcule la charge de la fois suivante (toute la fourchette bouclée → tu montes).
-Chaque série a sa case à cocher : tu vois où tu en es même en repliant l'exercice, et une
-ligne en haut récapitule l'avancement de la séance entière. Cocher une série lance la pause
-toute seule. Boutons padel, séance ratée, pre-workout Apurna.
+**Séance** — les exercices du jour avec tes charges. Tu saisis tes répétitions série par
+série ; quand toutes les séries atteignent le haut de la fourchette, la charge monte à la
+séance suivante. Le gros bouton numéroté de chaque série se coche d'un appui et lance la
+pause toute seule. En haut, une jauge suit l'avancement de la séance. Trois boutons :
+padel en plus (séance allégée), déplacer la séance, modifier les exercices.
 
-**Chrono** — compte à rebours pour les temps de repos. Huit durées de 30 s à 3 min, plus la
-liste des exercices du jour avec leur pause prescrite : un appui lance la bonne. Quand il
-tourne, une barre noire reste visible dans toute l'app, avec +15 s, pause et arrêt. À zéro
-elle passe au vert, vibre et bipe. Attention : iOS gèle la page quand l'écran est verrouillé,
-le son ne sortira pas, mais le décompte reste juste au déverrouillage (il se calcule sur
-l'heure de fin, pas sur un compteur).
+**Technique** — dans chaque exercice : un corps de face et de dos avec les muscles
+recrutés en rouge (vif pour les moteurs, pâle pour ceux qui soutiennent), les points
+d'exécution, et l'erreur qui blesse. Les 88 exercices ont leur fiche, et une variante ne
+récite pas les consignes d'un autre matériel : le rowing haltère a les siennes, pas
+celles du tirage à la poulie.
 
-**Technique** — dans chaque exercice, un onglet qui montre un corps de face et de dos avec
-les muscles recrutés en rouge : rouge vif pour les moteurs, rouge pâle pour ceux qui
-stabilisent. Chaque muscle porte ses stries dans le sens de ses fibres et un dégradé qui
-lui donne du galbe, pour qu'on lise dans quelle direction il tire. Dessous, les points d'exécution qui changent le résultat et, en orange,
-l'erreur qui blesse. Les 87 exercices du catalogue sont couverts, les variantes héritant
-de leur mouvement de base. Tout est dessiné en SVG : quelques Ko, affichage instantané,
-rien à télécharger, ça marche hors ligne.
+Les gestes animés de la version 4 ont été retirés : près d'un sur deux était faux.
+Ils reviendront avec un moteur refait. `mouv.js` est un fichier d'attente ;
+l'interface appelle déjà `mouvHTML()` et `mouvLance()`.
 
-**Mouvement** — en tête de l'onglet Technique, une figure articulée déroule l'exercice en
-boucle : descente, remontée. 25 schémas moteurs couvrent les 87 exercices (les variantes
-d'un même geste partagent sa trajectoire). Ce n'est pas une vidéo, et c'est volontaire :
-1,5 à 2,5 Ko par schéma au lieu de plusieurs Mo, rien à héberger, et la trajectoire est
-exacte au degré près au lieu d'être approximée par un cadrage de caméra. L'animation est
-en SMIL, donc aucun JavaScript ne tourne en continu.
+**Progression** — dans chaque exercice : où tu en es en une phrase, trois chiffres
+(départ, dernière fois, gain), et deux petits graphiques empilés sur le même axe de
+temps. En haut la charge ; en bas les répétitions, série par série, posées sur la
+fourchette visée. On y voit la double progression telle qu'elle se vit : les
+répétitions grimpent jusqu'en haut de la bande, la charge monte d'un cran, elles
+retombent. Toucher un point lit la séance. Dessous, les six dernières séances en clair.
 
-Le corps est une chaîne d'articulations emboîtées. Une pose est une liste d'angles, un
-schéma est deux poses, l'animation interpole de l'une à l'autre. Le point d'ancrage est ce
-qui rend le geste crédible : dans un squat ce sont les pieds qui restent au sol, dans une
-traction ce sont les mains sur la barre — la position du bassin est donc recalculée à
-chaque pose. Le cadrage est calculé lui aussi, à partir de la boîte englobante des deux
-poses : un schéma dont un pied sortirait de l'image se corrige tout seul.
+Ce qui est suivi, c'est la charge de travail, pas un 1RM estimé : le 1RM estimé baisse
+le jour où on passe de 6-8 à 4-6 répétitions avec 5 kg de plus, alors qu'on est plus
+fort. Le verdict (en progression, stable, en recul) compare les trois dernières
+séances sur leurs séries communes : passer de 4 séries à 3 n'est pas une régression.
+Revenir à une charge déjà soulevée n'est une progression que si on y fait mieux.
 
-**Progression** — un troisième onglet par exercice, avec la courbe depuis la première
-séance validée. Trois façons de mesurer selon le mouvement : 1RM estimé pour une charge
-classique, 1RM estimé poids de corps compris pour les tractions et les dips (sinon des
-tractions à vide vaudraient zéro), total de répétitions ou de secondes pour le reste. Le
-poids de corps actuel est appliqué à tout l'historique, sinon la courbe descendrait
-pendant une sèche alors que tu ne perds aucune force. Un trait pointillé marque une remise
-à zéro : avant et après ne se comparent pas.
+**Chrono** — compte à rebours pour les temps de repos. Huit durées de 30 s à 3 min, plus
+les pauses prescrites de la séance du jour. Quand il tourne, une barre jaune reste
+visible dans toute l'app, avec +15 s, pause et arrêt ; à zéro elle passe au vert, vibre
+et bipe. iOS gèle la page écran verrouillé : le son ne sortira pas, mais le décompte
+reste juste au déverrouillage (il se calcule sur l'heure de fin).
 
-**Repas** — le plan du lundi au vendredi midi, modifiable au gramme près. Coche les repas
-que tu as réellement pris. Bouton pour ajouter n'importe quel aliment hors plan.
+**Poids** — pesée lundi, mercredi, vendredi à jeun. La tendance est une droite des
+moindres carrés sur les pesées des 28 derniers jours, calculée sur leurs **dates**, avec
+son intervalle à 80 % : « −0,53 kg par semaine (−0,70 à −0,36) ». Il faut au moins
+4 pesées étalées sur 10 jours ; en dessous, l'app le dit au lieu d'annoncer un chiffre.
+Le verdict par rapport à la cible de la phase ne tombe que si tout l'intervalle est du
+même côté. Le graphique montre les pesées, la droite, et l'éventail des pentes que les
+données n'excluent pas.
 
-**Phases** — Sèche (2550 kcal, −0,3 kg/semaine, plancher à 2250), Remontée (2850, poids stable),
-Prise de masse (3150, +0,25 kg/semaine). Le bouton se trouve en haut de l'onglet Poids.
+**Phases** — Sèche (−0,27 kg/semaine), Remontée (poids stable), Prise de masse
+(+0,25 kg/semaine). La phase fixe la cible à laquelle la tendance est comparée.
 
-**Poids** — pesée lundi, mercredi, vendredi à jeun. Au bout de six pesées l'app compare les
-moyennes glissantes et réécrit les féculents de la semaine pour coller à la trajectoire.
+**Saison** — sous le poids : les blocs de l'année, recalculés à partir de trois dates
+(fin de la sèche, Hyrox, marathon).
 
-**Courses** — calculée depuis le plan, jamais saisie à la main. Bouton « j'en ai » pour ce
-que tu ramènes de chez tes parents.
-
-**Réglages** — corriger les valeurs d'un aliment, ajouter un produit par code-barres
-(Open Food Facts), exporter tes données.
+**Réglages** — exporter les données, tout effacer, version installée, forcer la mise à jour.
 
 ## Ma semaine
 
-Sur l'écran Séance, le bouton « Je n'ai pas pu » ouvre le planning de la semaine. Tu tapes
-un jour, tu choisis ce qui s'y passe vraiment (une des cinq séances, la séance bonus, padel,
-repos, absent),
-et le bouton « Décaler les séances à partir de… » pousse tout le reste d'un cran en sautant
-les jours où tu n'es pas là. L'app te dit ce qui ne rentre plus dans la semaine.
+« Déplacer la séance » ouvre le planning. Tu touches un jour, tu choisis ce qui s'y passe
+vraiment (une des cinq séances, la séance bonus, padel, repos, absent), et « Décaler les
+séances à partir de… » pousse le reste d'un cran en sautant les jours où tu n'es pas là.
+L'app dit ce qui ne rentre plus. « Remettre la semaine type » rétablit le programme.
 
-« Remettre la semaine type » rétablit le programme standard.
+**La séance bonus** est le jour en plus : arrière d'épaule, rotation externe, mollets,
+grip, curl léger, mobilité. Jamais lourde, pour ne pas abîmer la séance du lendemain.
+Ses charges sont suivies à part, le padel ne la rabote pas, et si elle saute elle ne
+crée pas de dette.
 
-**La séance bonus** est le jour en plus : arrière d'épaule, rotation externe, mollets, grip,
-curl léger, mobilité. Volontairement complémentaire et jamais lourde, pour ne pas abîmer la
-séance du lendemain. Un bouton la propose directement sur un jour de repos, ou sur un jour de
-course une fois la sortie enregistrée. Ses charges sont suivies à part, le padel ne la rabote
-pas, et si elle saute elle ne crée pas de dette : c'est un jour en plus, pas un jour dû.
-
-Quand une séance ne rentre pas, l'app ne coupe pas au hasard : elle garde les plus
-importantes (jambes, pec, dos, épaules, force dans cet ordre) et retient celle qui a sauté.
-La semaine suivante, cette séance repasse devant et c'est une autre qui saute si nécessaire.
-Tant qu'elle n'est pas au planning, une ligne « En retard » propose de la placer sur un jour
-de repos, sinon sur le créneau force du vendredi, sinon à la place de la course facile du
-samedi.
+Quand une séance ne rentre pas, l'app garde les plus importantes (jambes, pec, dos,
+épaules, force dans cet ordre) et retient celle qui a sauté : la semaine suivante elle
+repasse devant. Tant qu'elle n'est pas au planning, une ligne « En retard » propose de
+la placer.
 
 ## Le bilan hebdomadaire
 
-À la première ouverture d'une nouvelle semaine, un bandeau apparaît en tête de l'onglet
-Séance. Il relit ce que tu as enregistré et en tire les consignes : séances validées,
-charges qui ont monté, exercices bloqués depuis trois séances, repas cochés, moyenne des
-écarts hors plan, sortie longue la plus longue, tendance de poids avec le bouton qui
-applique l'ajustement au plan.
+À la première ouverture d'une nouvelle semaine, une carte apparaît sous le titre de la
+séance. Elle porte sur la **dernière semaine complète, du lundi au dimanche**, quel que
+soit le jour où on l'ouvre : séances, séries, tonnage (et ceux de la semaine d'avant),
+charges montées, fourchettes bouclées qui feront monter la charge à la prochaine séance,
+exercices à surveiller (répétitions en recul, ou palier), sortie la plus longue,
+tendance du poids.
 
-« Clore la semaine » fige les charges pour la comparaison suivante et remet à zéro la liste
-de courses, les séances ratées et les padels.
+Un exercice ne peut pas être à la fois « monté » et « à surveiller », et un exercice
+qui gagne des répétitions à charge égale n'est pas bloqué : c'est exactement la règle
+qui fait monter les charges.
 
-Rien ne tourne en arrière-plan : tout se recalcule à l'ouverture, y compris hors ligne.
+« Démarrer la nouvelle semaine » referme la carte et remet le planning type.
 
 ## Le questionnaire d'accueil
 
-Il ne s'adresse **qu'aux nouveaux arrivants**. Une installation qui porte déjà la moindre
-donnée — une séance validée, une pesée, une séance modifiée, une semaine type — ne le voit
-jamais : le verrou est posé au premier chargement et ne se relâche pas, même si les données
-sont effacées ensuite.
+Il ne s'adresse **qu'aux nouveaux arrivants**. Une installation qui porte déjà la
+moindre donnée ne le voit jamais : le verrou est posé au premier chargement et ne se
+relâche pas, même si les données sont effacées ensuite.
 
-Six questions : objectif, ancienneté, jours disponibles, matériel, articulation à ménager,
-poids de corps. Il en sort une semaine type, la composition de chaque séance, des charges
-de départ et une cible calorique estimée. Tout reste modifiable ensuite.
+Six questions : objectif, ancienneté, jours disponibles, matériel, articulation à
+ménager, poids de corps. Il en sort une semaine type, la composition de chaque séance,
+des charges de départ et la phase à suivre. Vérifié sur les 864 combinaisons de réponses :
 
-Ce qu'il fait vraiment, et qui se vérifie dans `onbtest.cjs` sur les 864 combinaisons de
-réponses possibles :
-
-- **Le matériel ne supprime pas, il remplace** d'abord. Sans barre, le rowing barre devient
-  rowing haltère ; sans rien, la séance se recompose en pompes, tirage australien, squat au
-  poids du corps.
-- **Une articulation sensible retire ET remplace** : genoux fragiles → la presse prend la
-  place du squat, le pont celle des fentes.
-- **Jamais deux fois le même mouvement** sous deux habillages : une élévation latérale aux
-  haltères et une à la poulie ne comptent qu'une fois.
-- **Jamais moins de trois exercices**, et chaque séance travaille réellement ce que son nom
-  annonce — la vérification passe par les muscles déclarés dans les fiches, pas par les noms.
-- **Rien ne s'ajoute à une séance intacte** : en salle et sans contrainte, le programme sort
-  exactement tel qu'il est écrit.
-
-Le plancher calorique devient proportionnel au gabarit au lieu d'hériter de celui d'un autre
-corps.
+- **Le matériel ne supprime pas, il remplace** d'abord.
+- **Une articulation sensible retire ET remplace** : genoux fragiles → la presse prend
+  la place du squat.
+- **Jamais deux fois le même mouvement** sous deux habillages.
+- **Jamais moins de trois exercices**, et chaque séance travaille ce que son nom annonce.
+- **Rien ne s'ajoute à une séance intacte.**
 
 ## Tes données
 
 Stockées dans le téléphone. **Réglages → Exporter** avant toute suppression de l'app :
-iOS efface le stockage en même temps.
+iOS efface le stockage en même temps. Au premier lancement de la 5.0, ce que
+l'alimentation avait enregistré (plan de repas, aliments, courses, compléments) est
+retiré ; séances, charges, pesées, courses à pied et planning sont conservés tels quels.
 
 ## Fichiers
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | structure et styles |
-| `data.js` | aliments, plan de repas, programme, phases, cures |
+| `index.html` | structure, styles, police des chiffres embarquée |
+| `data.js` | version, programme, exercices, phases, saison |
 | `anat.js` | corps en SVG, muscles par exercice, consignes d'exécution et de sécurité |
-| `mouv.js` | figure articulée, schémas moteurs, animation des trajectoires |
-| `app.js` | calculs : macros, progression, poids, courses, bilan, code-barres |
+| `mouv.js` | gestes animés (fichier d'attente en 5.0) |
+| `app.js` | calculs : progression, état des exercices, tendance du poids, bilan, planning, chrono |
 | `onb.js` | questionnaire d'accueil et génération du programme |
 | `ui.js` | écrans et interactions |
 | `sw.js` | hors ligne |
-| `manifest.webmanifest` | nom et icône |
+| `manifest.webmanifest`, `icon-192.png`, `icon-512.png` | nom, couleurs et icône |
 
-**Les dix fichiers sont à mettre sur GitHub.** Si l'un manque, l'app ne s'ouvre pas :
-`index.html` les charge tous. Le numéro de version en bas de l'onglet Réglages dit quelle
-version tourne réellement sur le téléphone — c'est ce qui distingue « mes fichiers ne sont
-pas partis » de « mon téléphone garde l'ancienne ».
+**Tous les fichiers sont à mettre sur GitHub.** Si l'un manque, l'app ne s'ouvre pas :
+`index.html` les charge tous.

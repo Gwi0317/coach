@@ -1,323 +1,400 @@
 /* ═════════ ÉTAT D'AFFICHAGE ═════════ */
 
-let V = { tab:"seance", day: todayKey(), openEx:null, openMeal:null, picker:null, editFood:null, tmp:{}, exTab:"series" };
+let V = { tab:"seance", day: todayKey(), openEx:null, tmp:{}, exTab:"series" };
 
-/* Ce qu'il faut battre aujourd'hui, et ce qui a été fait la dernière fois */
+const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const plur = (n, mot) => n + " " + mot + (n > 1 ? "s" : "");
+
+/* Durée de pause lisible : 150 → « 2 min 30 » */
+const pauseTxt = (s) => (s >= 60 ? (s % 60 ? Math.floor(s / 60) + " min " + (s % 60) : Math.floor(s / 60) + " min") : s + " s");
+const fourchette = (ex) => (ex.r[0] === ex.r[1] ? ex.r[0] : ex.r[0] + "-" + ex.r[1]);
+const kgTxt = (kg) => fr(kg) + " kg";
+const dateCourte = (d) => dateFr(d).replace(/ \d{4}$/, "");
+
+function stepper(act, id, val, unit, dec) {
+  return '<span class="step"><button data-act="' + act + '-" data-id="' + id + '" aria-label="Moins">−</button>' +
+         '<input class="qty" type="number" inputmode="decimal" step="' + (dec || 1) + '" value="' + val +
+         '" data-fld="' + act + '" data-id="' + id + '">' +
+         (unit ? '<span class="un">' + unit.trim() + "</span>" : "") +
+         '<button data-act="' + act + '+" data-id="' + id + '" aria-label="Plus">+</button></span>';
+}
+
+/* Le bloc sombre en tête d'écran : ce qu'il y a à faire, écrit gros */
+function heros(cls, sur, titre, sous, plus) {
+  return '<section class="heros ' + cls + '">' + (sur ? '<p class="sur">' + sur + "</p>" : "") +
+         "<h1>" + titre + "</h1>" + (sous ? '<p class="sous">' + sous + "</p>" : "") + (plus || "") + "</section>";
+}
+
+/* Une séance en clair : « 62,5 kg : 8 / 7 / 6 » ou « 60×8, 55×7 » si la charge a bougé */
+function seriesTxt(e, ex) {
+  const kgs = e.kgs || e.reps.map(() => e.kg);
+  const plat = kgs.every((k) => k === kgs[0]);
+  if (plat) return e.reps.join(" / ");
+  return e.reps.map((r, i) => fr(kgs[i]) + "×" + r).join(", ");
+}
+
 /* ═════════ PANNEAU TECHNIQUE ═════════ */
-/* Schéma des muscles recrutés, points d'exécution, et l'erreur qui blesse. */
+/* Le geste animé, les muscles recrutés, les points d'exécution, et l'erreur
+   qui blesse. Dans cet ordre : on comprend mieux ce qui travaille quand on a
+   vu la trajectoire. */
 function panneauTechnique(ex) {
   const f = fiche(ex);
   if (!f) return '<p class="vide">Pas encore de fiche technique pour cet exercice.</p>';
-  let h = "";
-
-  /* Le geste d'abord, les muscles ensuite : on comprend mieux ce qui
-     travaille quand on a vu la trajectoire. */
-  const M = mouvDe(ex);
-  if (M) h += '<div class="mouvbox">' + schemaMouv(M) +
-              '<div class="mouvpied"><span>' + esc(M.n) + "</span><span>" +
-              "trajectoire, en boucle</span></div></div>";
-
+  let h = typeof mouvHTML === "function" ? mouvHTML(ex) : "";
   if ((f.p && f.p.length) || (f.s && f.s.length)) h += schemaMuscles(f.p, f.s);
   h += '<div class="fiche">';
-  if (f.tech && f.tech.length) {
-    h += "<h4>EXÉCUTION</h4><ol>" + f.tech.map((t) => "<li>" + esc(t) + "</li>").join("") + "</ol>";
-  }
-  if (f.secu) h += '<p class="secu"><b>Pour ne pas te blesser.</b> ' + esc(f.secu) + "</p>";
+  if (f.tech && f.tech.length)
+    h += "<h4>Exécution</h4><ol>" + f.tech.map((t) => "<li>" + esc(t) + "</li>").join("") + "</ol>";
+  if (f.secu) h += '<p class="secu"><b>Pour ne pas te blesser</b>' + esc(f.secu) + "</p>";
   return h + "</div>";
 }
 
 /* ═════════ PANNEAU PROGRESSION ═════════ */
-/* Une courbe par exercice, tracée depuis la première séance validée. */
+/* Deux petits graphiques empilés sur le même axe de temps : la charge en
+   haut, les répétitions en bas, posées sur la fourchette visée. C'est la
+   double progression telle qu'on la vit : les répétitions grimpent jusqu'en
+   haut de la fourchette, puis la charge monte d'un cran et elles retombent. */
 function panneauProgression(ex) {
-  const H = histoExo(ex), n = H.pts.length;
-  const unite = H.u === "kg" ? "kg" : H.u === "s" ? "s" : "reps";
+  const E = etatExo(ex), H = E.H, s = H.s, n = s.length;
+  if (!n) return '<p class="vide">Aucune séance validée' + (H.reset ? " depuis la remise à zéro du " + dateFr(H.reset) : "") +
+                 ". Valide l'exercice une première fois et le suivi démarre.</p>";
 
-  if (!n) return '<p class="vide">Aucune séance validée pour cet exercice. Valide-le une première fois et la courbe démarre.</p>';
-  if (n === 1) return '<p class="vide">Une seule séance enregistrée, à ' + fr(H.pts[0].v) + " " + unite +
-                      ". Il en faut une deuxième pour tracer une évolution.</p>";
+  const charge = H.mode === "charge" || H.mode === "lest";
+  const uR = H.mode === "temps" ? " " + H.unite : "";                 // unité des répétitions
+  const dit = (kg) => (H.mode === "lest" ? (kg ? "+" + fr(kg) + " kg" : "poids du corps") : fr(kg) + " kg");
+  const court = (kg) => (H.mode === "lest" && kg ? "+" : "") + fr(kg);
+  const der = s[n - 1], prem = s[0];
 
-  const W = 300, HT = 104, T = 16, B = 18, x0 = 4, x1 = W - 4, y0 = T, y1 = HT - B;
-  const vs = H.pts.map((p) => p.v);
-  let mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs);
-  if (mx === mn) { mx = mn + 1; mn = Math.max(0, mn - 1); }
-  const marge = (mx - mn) * 0.18; mn -= marge; mx += marge;
-  const X = (i) => x0 + (x1 - x0) * i / (n - 1);
-  const Y = (v) => y1 - (y1 - y0) * (v - mn) / (mx - mn);
+  /* ── Où on en est, en une phrase ── */
+  let cls = "neutre", txt;
+  if (E.valide) {
+    cls = "ok";
+    txt = charge && der.next != null && der.next > der.top
+      ? "Fourchette bouclée : prochaine séance à " + dit(der.next) + "."
+      : "Haut de la fourchette atteint sur toutes les séries.";
+  } else if (E.etat === "debut") {
+    txt = n === 1 ? "Première séance enregistrée. Il en faut trois pour dire où ça va."
+                  : "Deux séances enregistrées. Encore une pour dire où ça va.";
+  } else if (E.retour) {
+    /* revenu à une charge déjà soulevée : on compare à cette fois-là */
+    const quand = "le " + dateCourte(E.retour.d) + " (" + E.retour.ref.join(" / ") + ")";
+    cls = E.etat === "monte" ? "ok" : E.etat === "baisse" ? "warn" : "neutre";
+    txt = "De retour à " + dit(E.top) + ". " +
+          (E.etat === "monte" ? "Mieux que " + quand + " : +" + E.dReps + " répétitions."
+           : E.etat === "baisse" ? "En dessous de " + quand + " : −" + (-E.dReps) + " répétitions."
+           : "Même niveau que " + quand + ".");
+  } else if (E.etat === "monte") {
+    cls = "ok";
+    txt = E.dKg > 0 ? "En progression : +" + fr(E.dKg) + " kg sur les trois dernières séances." +
+                      (E.sous ? " Encore sous les " + dit(E.sous.top) + " du " + dateCourte(E.sous.d) + "." : "")
+                    : "En progression : +" + E.dReps + (uR || " répétitions") + " à charge égale sur trois séances.";
+  } else if (E.etat === "baisse") {
+    cls = "warn";
+    txt = E.dKg < 0 ? "Charge en baisse de " + fr(-E.dKg) + " kg sur les trois dernières séances."
+                    : "En recul : −" + (-E.dReps) + (uR || " répétitions") + " à charge égale sur trois séances.";
+  } else {
+    txt = charge ? "Stable : " + plur(E.palier, "séance") + " à " + dit(E.top) + ", sans gagner de répétitions sur les trois dernières."
+                 : "Stable sur les trois dernières séances.";
+  }
+  let h = '<p class="etat ' + cls + '"><i></i><span>' + txt + "</span></p>";
 
-  const pts = H.pts.map((p, i) => X(i).toFixed(1) + " " + Y(p.v).toFixed(1));
-  const ligne = "M " + pts.join(" L ");
-  const aire = ligne + " L " + X(n - 1).toFixed(1) + " " + y1 + " L " + x0 + " " + y1 + " Z";
+  /* ── Trois chiffres ── */
+  const moy = (x) => Math.round(x.moy * 10) / 10;
+  if (charge) {
+    const g = Math.round((der.top - prem.top) * 10) / 10;
+    const base = H.mode === "lest" ? prem.top + H.corps : prem.top;
+    h += '<div class="tuiles">' +
+         "<div><small>Départ</small><b>" + court(prem.top) + "<i>kg</i></b><small>" + dateCourte(prem.d) + "</small></div>" +
+         "<div><small>Dernière fois</small><b>" + court(der.top) + "<i>kg</i></b><small>" + dateCourte(der.d) + "</small></div>" +
+         "<div><small>Gain</small><b>" + (g > 0 ? "+" : "") + fr(g) + "<i>kg</i></b><small>" +
+           (n > 1 && base > 0 ? (g > 0 ? "+" : "") + Math.round(g / base * 100) + " %" + (H.mode === "lest" ? ", corps compris" : "") : "&nbsp;") +
+         "</small></div></div>";
+  } else {
+    const g = Math.round((moy(der) - moy(prem)) * 10) / 10;
+    h += '<div class="tuiles">' +
+         "<div><small>Départ</small><b>" + fr(moy(prem)) + "<i>" + (H.unite === "reps" ? "/ série" : H.unite) + "</i></b><small>" + dateCourte(prem.d) + "</small></div>" +
+         "<div><small>Dernière fois</small><b>" + fr(moy(der)) + "<i>" + (H.unite === "reps" ? "/ série" : H.unite) + "</i></b><small>" + dateCourte(der.d) + "</small></div>" +
+         "<div><small>Gain</small><b>" + (g > 0 ? "+" : "") + fr(g) + "</b><small>" + plur(n, "séance") + "</small></div></div>";
+  }
 
-  let svg = '<svg class="courbe" viewBox="0 0 ' + W + " " + HT + '" preserveAspectRatio="none">' +
-            '<line class="gr" x1="' + x0 + '" y1="' + y0 + '" x2="' + x1 + '" y2="' + y0 + '"/>' +
-            '<line class="gr" x1="' + x0 + '" y1="' + y1 + '" x2="' + x1 + '" y2="' + y1 + '"/>' +
-            '<path class="ar" d="' + aire + '"/><path class="ln" d="' + ligne + '"/>';
+  /* ── Graphique ── */
+  if (n >= 2) {
+    const W = 320, xg = 30, xd = W - 10;
+    const jour = (d) => new Date(d + "T12:00:00").getTime() / 86400000;
+    const t0 = jour(prem.d), t1 = jour(der.d);
+    const X = (x) => (t1 === t0 ? (xg + xd) / 2 : xg + (xd - xg) * (jour(x.d) - t0) / (t1 - t0));
+    const sel = V.tmp.pt != null && s[V.tmp.pt] ? V.tmp.pt : n - 1;
+    const f1 = (v) => v.toFixed(1);
 
-  /* Repère de remise à zéro : la comparaison redémarre là, autant que ça se voie. */
-  if (H.reset) {
-    let k = -1;
-    H.pts.forEach((p, i) => { if (k < 0 && p.d >= H.reset) k = i; });
-    if (k > 0) {
-      const xr = ((X(k - 1) + X(k)) / 2).toFixed(1);
-      svg += '<line class="gr" x1="' + xr + '" y1="' + y0 + '" x2="' + xr + '" y2="' + y1 +
-             '" stroke-dasharray="3 3"/>';
+    /* panneau du haut : la charge */
+    const yA0 = 12, yA1 = charge ? 84 : 0;
+    /* panneau du bas : les répétitions, série par série */
+    const yB0 = charge ? 118 : 16, yB1 = charge ? 178 : 126;
+    const HT = yB1 + 22;
+    let svg = '<svg class="graf" viewBox="0 0 ' + W + " " + HT + '" role="img" aria-label="Évolution séance par séance">';
+
+    if (charge) {
+      const tops = s.map((x) => x.top);
+      let mn = Math.min.apply(null, tops), mx = Math.max.apply(null, tops);
+      const plat = mx === mn;
+      const Y = (v) => (plat ? (yA0 + yA1) / 2 : yA1 - (yA1 - yA0) * (v - mn) / (mx - mn));
+      svg += '<line class="gr" x1="' + xg + '" y1="' + yA1 + '" x2="' + xd + '" y2="' + yA1 + '"/>';
+      if (!plat) svg += '<line class="gr" x1="' + xg + '" y1="' + yA0 + '" x2="' + xd + '" y2="' + yA0 + '"/>' +
+                        '<text class="ax" x="' + (xg - 6) + '" y="' + (yA0 + 3.5) + '" text-anchor="end">' + fr(mx) + "</text>";
+      svg += '<text class="ax" x="' + (xg - 6) + '" y="' + (plat ? Y(mn) + 3.5 : yA1 + 3.5) + '" text-anchor="end">' + fr(mn) + "</text>";
+      svg += '<path class="ln" d="M' + s.map((x) => f1(X(x)) + " " + f1(Y(x.top))).join("L") + '"/>';
+      s.forEach((x, i) => {
+        svg += '<circle class="pt' + (i === sel ? " sel" : "") + '" cx="' + f1(X(x)) + '" cy="' + f1(Y(x.top)) + '" r="' + (i === sel ? 4.5 : 3.2) + '"/>';
+      });
+      svg += '<text class="tit" x="' + xg + '" y="' + (yA0 - 3) + '">' + (H.mode === "lest" ? "Lest, kg" : "Charge, kg") + "</text>";
     }
+
+    /* répétitions : un petit point par série, un trait pour la moyenne */
+    const lo = ex.r[0], hi = ex.r[1];
+    let rmn = lo, rmx = hi;
+    s.forEach((x) => x.ref.forEach((r) => { if (r < rmn) rmn = r; if (r > rmx) rmx = r; }));
+    const pad = Math.max(1, (rmx - rmn) * 0.12); rmn -= pad; rmx += pad;
+    const YR = (v) => yB1 - (yB1 - yB0) * (v - rmn) / (rmx - rmn);
+    /* la fourchette visée, en bande */
+    svg += '<rect class="bande" x="' + xg + '" y="' + f1(YR(hi)) + '" width="' + (xd - xg) + '" height="' + f1(Math.max(2, YR(lo) - YR(hi))) + '"/>' +
+           '<text class="ax" x="' + (xg - 6) + '" y="' + f1(YR(hi) + 3.5) + '" text-anchor="end">' + hi + "</text>" +
+           (lo !== hi ? '<text class="ax" x="' + (xg - 6) + '" y="' + f1(YR(lo) + 3.5) + '" text-anchor="end">' + lo + "</text>" : "");
+    svg += '<path class="ln fin" d="M' + s.map((x) => f1(X(x)) + " " + f1(YR(x.moy))).join("L") + '"/>';
+    s.forEach((x, i) => {
+      x.ref.forEach((r) => { svg += '<circle class="rp" cx="' + f1(X(x)) + '" cy="' + f1(YR(r)) + '" r="1.7"/>'; });
+      svg += '<circle class="pt' + (i === sel ? " sel" : "") + '" cx="' + f1(X(x)) + '" cy="' + f1(YR(x.moy)) + '" r="' + (i === sel ? 4.5 : 3.2) + '"/>';
+    });
+    svg += '<text class="tit" x="' + xg + '" y="' + (yB0 - 8) + '">' +
+           (H.mode === "temps" ? "Durée par série, " + H.unite : "Répétitions par série") + ", sur la fourchette " + fourchette(ex) + "</text>";
+
+    /* axe du temps, et repère de la séance choisie */
+    svg += '<text class="ax" x="' + xg + '" y="' + (HT - 6) + '">' + dateCourte(prem.d) + "</text>" +
+           '<text class="ax" x="' + xd + '" y="' + (HT - 6) + '" text-anchor="end">' + dateCourte(der.d) + "</text>" +
+           '<line class="rep" x1="' + f1(X(s[sel])) + '" y1="' + (charge ? yA0 : yB0) + '" x2="' + f1(X(s[sel])) + '" y2="' + yB1 + '"/>';
+    /* zones tactiles, plus larges que les points */
+    s.forEach((x, i) => {
+      const g = i ? (X(x) + X(s[i - 1])) / 2 : 0, d = i < n - 1 ? (X(x) + X(s[i + 1])) / 2 : W;
+      svg += '<rect class="hit" x="' + f1(g) + '" y="0" width="' + f1(Math.max(1, d - g)) + '" height="' + HT + '" data-act="pt" data-id="' + i + '"/>';
+    });
+    svg += "</svg>";
+
+    const p = s[sel];
+    h += '<div class="grafbox"><p class="lect"><b>' + dateFr(p.d) + "</b>" +
+         (charge ? dit(p.top) + ", " : "") + p.ref.join(" / ") + uR +
+         (p.ref.length < p.series ? " à la charge de tête" : "") + "</p>" + svg +
+         '<p class="grafpied">Touche un point pour lire la séance. Petits points : chaque série. Trait : leur moyenne.</p></div>';
   }
 
-  /* Au-delà d'une quinzaine de séances les points se chevauchent : on ne garde que les bouts. */
-  const tous = n <= 14;
-  H.pts.forEach((p, i) => {
-    if (!tous && i && i < n - 1) return;
-    svg += '<circle class="pt' + (i === n - 1 ? " last" : "") + '" cx="' + X(i).toFixed(1) +
-           '" cy="' + Y(p.v).toFixed(1) + '" r="' + (i === n - 1 ? 3.4 : 2.4) + '"/>';
+  /* ── Les dernières séances, en clair ── */
+  h += '<table class="hist"><thead><tr><th>Séance</th>' + (charge ? "<th>Charge</th>" : "") +
+       "<th>" + (H.mode === "temps" ? "Durées" : "Répétitions") + "</th></tr></thead><tbody>";
+  s.slice(-6).reverse().forEach((x) => {
+    const plat = x.kgs.every((k) => k === x.kgs[0]);
+    h += "<tr><td>" + dateCourte(x.d) + "</td>" + (charge ? "<td>" + dit(x.top) + "</td>" : "") + "<td>" +
+         (plat || !charge ? x.reps.filter((r) => r > 0).join(" / ")
+                          : x.reps.map((r, i) => (r ? (x.kgs[i] === x.top ? r : r + " à " + fr(x.kgs[i])) : null)).filter(Boolean).join(" / ")) +
+         "</td></tr>";
   });
-
-  /* La valeur du jour se place dans la marge haute, jamais à côté du dernier
-     point : le tracé arrive par la droite et l'étiquette lui tombait dessus. */
-  svg += '<text class="v" x="' + x1 + '" y="11" text-anchor="end">' +
-         fr(H.pts[n - 1].v) + " " + unite + "</text></svg>";
-
-  const prem = H.pts[0], der = H.pts[n - 1], ecart = Math.round((der.v - prem.v) * 10) / 10;
-  const sens = ecart > 0 ? "up" : ecart < 0 ? "dn" : "";
-  const titre = H.pdc ? "1RM estimé, corps compris"
-              : H.charge ? "1RM estimé"
-              : H.u === "s" ? "Total de secondes" : "Total de répétitions";
-  const delta = ecart === 0 ? "stable depuis le début"
-              : (ecart > 0 ? "+" : "") + fr(ecart) + " " + unite + " depuis le début";
-
-  let h = '<div class="prog"><div class="ph"><b>' + titre + "</b><i class=\"" + sens + '">' + delta +
-          "</i></div>" + svg +
-          '<div class="progpied"><span>' + dateFr(prem.d) + "</span><span>" + n + " séances</span><span>" +
-          dateFr(der.d) + "</span></div></div>";
-
-  /* Comment lire la charge d'une séance : lest seul pour un mouvement au
-     poids du corps, charge brute sinon. */
-  const dit = (p) => (H.pdc
-      ? (p.kg ? "+" + fr(p.kg) + " kg" : "poids du corps")
-      : fr(p.kg) + " kg") + " × " + p.rp;
-
-  if (H.charge) {
-    h += '<p class="small">Au départ <b>' + dit(prem) + "</b>, aujourd\'hui <b>" + dit(der) +
-         "</b>. Le 1RM estimé résume charge et répétitions en un seul nombre : gagner des " +
-         "répétitions à charge égale fait monter la courbe.</p>";
-    if (H.pdc)
-      h += '<p class="small">Calculé avec ' + fr(H.corps) + " kg de poids de corps, appliqués à toute " +
-           "l\'historique. Si on prenait ton poids de chaque séance, la courbe descendrait " +
-           "pendant une sèche alors que tu ne perds aucune force.</p>";
-  } else {
-    h += '<p class="small">Au départ <b>' + fr(prem.v) + " " + unite + "</b>, aujourd\'hui <b>" +
-         fr(der.v) + " " + unite + "</b>, toutes séries confondues.</p>";
-  }
-
-  if (H.reset) h += '<p class="small">Trait pointillé : la remise à zéro du ' + dateFr(H.reset) +
-                    ". Avant et après ne se comparent pas directement.</p>";
+  h += "</tbody></table>";
+  if (n > 6) h += '<p class="small">' + n + " séances au total depuis le " + dateFr(prem.d) + ".</p>";
+  if (H.mode === "lest")
+    h += '<p class="small">Le pourcentage compte ton poids de corps (' + fr(H.corps) + " kg) : passer de 0 à 10 kg de lest, " +
+         "c'est déplacer " + Math.round(10 / H.corps * 100) + " % de plus, pas une infinité.</p>";
+  if (H.reset) h += '<p class="small">Comparaisons reparties de zéro le ' + dateFr(H.reset) + ". Les séances d'avant sont conservées mais ne sont plus affichées ici.</p>";
   return h;
-}
-
-function objLine(ex, kg, done) {
-  const cible = ex.s + " \u00d7 " + ex.r[1] + (ex.bw && !kg ? "" : " à " + fr(kg) + " kg");
-  const prec = dernierLog(ex.id, true);
-  let h = '<div class="obj">';
-  if (done) {
-    h += "<b>Prochaine fois</b> " + ex.s + " \u00d7 " + ex.r[1] +
-         (ex.bw && !done.next ? "" : " à " + fr(done.next) + " kg");
-  } else {
-    h += "<b>Objectif</b> " + cible;
-  }
-  if (prec) {
-    const kgs = prec.e.kgs || prec.e.reps.map(() => prec.e.kg);
-    const plat = kgs.every((k) => k === kgs[0]);
-    h += '<span class="prev">' + ilYA(prec.date) + " : " +
-         (plat ? (ex.bw && !kgs[0] ? "" : fr(kgs[0]) + " kg — ") + prec.e.reps.join(" / ")
-               : prec.e.reps.map((r, i) => fr(kgs[i]) + "\u00d7" + r).join(" · ")) + "</span>";
-    if (!plat && !done) h += '<span class="prev">Toutes les séries à ' + fr(kg) + " kg cette fois.</span>";
-  } else {
-    h += '<span class="prev">Première fois sur cet exercice, note bien tes séries.</span>';
-  }
-  return h + "</div>";
-}
-
-function EXBASE(d, ex) { return EXCAT[ex.base || ex.id] || null; }
-
-function resume(done) {
-  const kgs = done.kgs || done.reps.map(() => done.kg);
-  const uniforme = kgs.every((k) => k === kgs[0]);
-  if (uniforme) return done.reps.join(" / ");
-  return done.reps.map((r, i) => fr(kgs[i]) + "\u00d7" + r).join(" · ");
-}
-
-function caffeineWarning() {
-  const hh = new Date().getHours();
-  if (hh >= 16) return "Il est " + hh + " h : 200 mg de caféine maintenant, il en reste la moitié dans le sang vers 23 h. Prends une demi-dose, ou saute-la.";
-  if (hh >= 14) return "Prends-la maintenant au plus tard si tu te couches vers 23 h.";
-  return "Idéalement avant 15 h si tu te couches vers 23 h.";
-}
-
-const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-
-function bar(pct, col) {
-  return '<div class="bar"><i style="width:' + Math.min(100, pct) + '%;background:' + col + '"></i></div>';
-}
-function checkbox(on, col) {
-  return '<span class="cb' + (on ? " on" : "") + '"' + (on ? ' style="background:' + col + ';border-color:' + col + '"' : "") + '>' + (on ? "✓" : "") + "</span>";
-}
-function stepper(act, id, val, unit, dec) {
-  return '<span class="step"><button data-act="' + act + '-" data-id="' + id + '">−</button>' +
-         '<input class="qty" type="number" inputmode="decimal" step="' + (dec || 1) + '" value="' + val +
-         '" data-fld="' + act + '" data-id="' + id + '">' +
-         (unit ? '<span class="un">' + unit.trim() + "</span>" : "") +
-         '<button data-act="' + act + '+" data-id="' + id + '">+</button></span>';
 }
 
 /* ═════════ SÉANCE ═════════ */
 
+/* Ce qu'il faut battre aujourd'hui, et ce qui a été fait la dernière fois */
+function objLine(ex, kg, done) {
+  const u = ex.u ? " " + ex.u : "";
+  let h = '<p class="obj">';
+  if (done) {
+    h += "<span>Fait : <b>" + seriesTxt(done, ex) + u + "</b></span>" +
+         (ex.bw && !ex.inc ? "" : "<span>prochaine fois " + ex.s + " × " + ex.r[1] + " à " + kgTxt(done.next) + "</span>");
+    return h + "</p>";
+  }
+  h += "<span>Objectif <b>" + ex.s + " × " + ex.r[1] + u + "</b></span>";
+  const prec = dernierLog(ex.id, true);
+  if (prec) {
+    const kgs = prec.e.kgs || prec.e.reps.map(() => prec.e.kg);
+    const plat = kgs.every((k) => k === kgs[0]);
+    h += "<span>" + ilYA(prec.date) + " : " + seriesTxt(prec.e, ex) + u +
+         (plat && kgs[0] !== kg && !(ex.bw && !ex.inc) ? " à " + kgTxt(kgs[0]) : "") + "</span>";
+  } else {
+    h += "<span>première fois, note bien tes séries</span>";
+  }
+  return h + "</p>";
+}
+
+function EXBASE(d, ex) { return EXCAT[ex.base || ex.id] || null; }
+
+/* ── Bilan de la dernière semaine complète ── */
 function viewBilan() {
   if (S.seen.week === weekId()) return "";
   const b = bilanSemaine();
-  if (!b.seances && !S.weights.length) return "";      // rien à raconter encore
-  let h = '<div class="card pad bilan"><h3>Bilan de la semaine</h3><ul>';
-  h += "<li>" + b.seances + " séance" + (b.seances > 1 ? "s" : "") + " validée" + (b.seances > 1 ? "s" : "") +
-       " sur les 7 derniers jours" + (b.seances >= 4 ? "." : ", l'objectif est de 4.") + "</li>";
-  if (b.montes.length) h += "<li>Charges montées : " + b.montes.map(nomExo).join(", ").toLowerCase() + ".</li>";
-  if (b.bloques.length) h += "<li>Bloqué depuis 3 séances : " + b.bloques.map(nomExo).join(", ").toLowerCase() +
-       ". Baisse de 10 % la prochaine fois et remonte sur deux semaines, ou coupe une série pour finir la fourchette.</li>";
-  if (b.faits) h += "<li>" + b.faits + " repas cochés sur " + b.prevus + " prévus.</li>";
-  if (b.reel) h += "<li>Relevé réel sur " + b.reel.n + " jour" + (b.reel.n > 1 ? "s" : "") + " : <b>" +
-       b.reel.kcal + " kcal</b> et " + b.reel.p + " g de protéines par jour, pour un plan à " +
-       baseTarget() + " kcal et 180 g." + (b.reel.kcal > baseTarget() + 120 ? " L'écart est là." : "") + "</li>";
-  if (b.horsPlan > 120) h += "<li>En moyenne " + b.horsPlan + " kcal par jour hors plan. Si ça se répète, autant les intégrer au plan plutôt que de les subir.</li>";
-  if (b.longue) h += "<li>Sortie la plus longue : " + b.longue + " min.</li>";
-  if (b.tr) h += "<li>" + b.tr.msg + "</li>";
-  if (b.dette.length) h += "<li><b>" + b.dette.map((x) => nomSlot(x.id)).join(" et ") +
-       "</b> a sauté la semaine dernière. À replacer en priorité cette semaine.</li>";
-  h += "</ul>";
+  if (!b.seances && !b.avant.seances) return "";      // rien à raconter encore
+  const lignes = (l, nom, val) => '<ul class="lst">' + l.map((x) =>
+    "<li><span>" + esc(nom(x)) + "</span><b>" + val(x) + "</b></li>").join("") + "</ul>";
+  const jour = (d) => +d.slice(8);
+
+  let h = '<section class="carte bilan"><h3>Semaine du ' + jour(b.du) +
+          (b.du.slice(5, 7) === b.au.slice(5, 7) ? "" : " " + dateCourte(b.du).replace(/^\d+ /, "")) + " au " + dateCourte(b.au) + "</h3>" +
+          '<div class="tuiles">' +
+          "<div><small>Séances</small><b>" + b.seances + "</b><small>" + (b.avant.seances ? b.avant.seances + " avant" : "&nbsp;") + "</small></div>" +
+          "<div><small>Séries</small><b>" + b.series + "</b><small>" + (b.avant.series ? b.avant.series + " avant" : "&nbsp;") + "</small></div>" +
+          "<div><small>Tonnage</small><b>" + fr(b.kg / 1000) + "<i>t</i></b><small>" + (b.avant.kg ? fr(b.avant.kg / 1000) + " t avant" : "&nbsp;") + "</small></div></div>";
+
+  if (b.montes.length)
+    h += '<div class="bl ok"><b>Charges montées</b>' +
+         lignes(b.montes, (x) => nomExo(x.id), (x) => fr(x.de) + " → " + kgTxt(x.a)) + "</div>";
+  const suite = b.valides.filter((x) => x.charge);
+  if (suite.length)
+    h += '<div class="bl ok"><b>Fourchette bouclée : ça monte à la prochaine séance</b>' +
+         lignes(suite, (x) => nomExo(x.id), (x) => kgTxt(x.a)) + "</div>";
+  if (b.surveiller.length)
+    h += '<div class="bl warn"><b>À surveiller</b>' +
+         lignes(b.surveiller, (x) => nomExo(x.id), (x) => (x.etat === "baisse"
+           ? (x.dKg < 0 ? "charge en baisse" : "−" + (-x.dReps) + " reps à " + fr(x.top) + " kg")
+           : plur(x.palier, "séance") + (x.charge ? " à " + kgTxt(x.top) : " sans bouger"))) +
+         "<p>Un palier de trois séances n'est pas un problème en sèche. Au-delà de cinq, retire une série ou " +
+         "redescends de 10 % pour repartir.</p></div>";
+  if (b.longue) h += '<div class="bl"><b>Course</b><p>Sortie la plus longue : ' + b.longue + " min.</p></div>";
+  if (b.tr.ok)
+    h += '<div class="bl"><b>Poids</b><p>' + penteTxt(b.tr) + "</p></div>";
+  if (b.dette.length)
+    h += '<div class="bl warn"><b>Séance en retard</b><p>' + b.dette.map((x) => esc(nomSlot(x.id))).join(" et ") +
+         " a sauté la semaine dernière. À replacer en priorité.</p></div>";
   b.dette.forEach((x) => {
-    h += '<button class="cta gym" data-act="placerdette" data-id="' + x.id + '">Replacer ' + nomSlot(x.id).toLowerCase() + "</button>";
+    h += '<button class="cta" data-act="placerdette" data-id="' + x.id + '">Replacer ' + esc(nomSlot(x.id).toLowerCase()) + "</button>";
   });
-  if (b.tr && b.tr.adj) h += '<button class="cta wgt" data-act="applyadj" data-id="' + b.tr.adj + '">Appliquer ' +
-       (b.tr.adj > 0 ? "+" : "") + b.tr.adj + " kcal au plan</button>";
-  h += '<button class="ghost" data-act="newweek">Nouvelle semaine : remettre le planning type et vider la liste de courses</button>' +
-       '<p class="small">Les calories se règlent sur la moyenne de la semaine, jamais sur un seul écart. Un gros repas ne se rattrape pas le lendemain.</p></div>';
+  h += '<button class="' + (V.tmp.nw ? "cta" : "ghost") + '" data-act="newweek">' +
+       (V.tmp.nw ? "Confirmer : remettre le planning type" : "Démarrer la nouvelle semaine") + "</button></section>";
   return h;
+}
+
+/* La tendance du poids en une phrase, intervalle compris */
+function penteTxt(t) {
+  const sg = signe;
+  const lec = t.verdict === "vite" ? (t.cible < 0 ? "Plus rapide que la cible." : "Plus lent que la cible.")
+            : t.verdict === "lent" ? (t.cible < 0 ? "Plus lent que la cible." : "Plus rapide que la cible.")
+            : "Compatible avec la cible.";
+  return "<b>" + sg(t.pente) + " kg par semaine</b> sur " + t.n + " pesées en " + Math.round(t.etendue) +
+         " jours (intervalle à 80 % : " + sg(t.bas) + " à " + sg(t.haut) + "), pour une cible de " + sg(t.cible) + ". " + lec;
 }
 
 function viewSemaine() {
   const w = week();
-  let h = '<div class="card pad sem"><h3>Ma semaine</h3>';
+  let h = '<section class="carte sem"><h3>Ma semaine</h3>';
   dettesEnAttente().forEach((x) => {
-    h += '<div class="dette">En retard : <b>' + nomSlot(x.id) + "</b>" +
-         '<button class="ghost" data-act="placerdette" data-id="' + x.id + '">Placer</button>' +
-         '<button class="ghost" data-act="oublidette" data-id="' + x.id + '">Laisser tomber</button></div>';
+    h += '<div class="dette"><p>En retard : <b>' + esc(nomSlot(x.id)) + "</b></p>" +
+         '<button class="puce" data-act="placerdette" data-id="' + x.id + '">Placer</button>' +
+         '<button class="puce" data-act="oublidette" data-id="' + x.id + '">Laisser tomber</button></div>';
   });
   DAYS.forEach((x) => {
     const id = w[x], open = V.tmp.semDay === x;
     h += '<div class="semrow' + (open ? " open" : "") + '" data-act="semday" data-id="' + x + '">' +
-         "<b>" + LONG[x] + "</b><i>" + nomSlot(id) + "</i></div>";
+         "<b>" + LONG[x] + "</b><i>" + esc(nomSlot(id)) + "</i></div>";
     if (open) {
       h += '<div class="semopts">' + CHOIX.map((c) =>
-        '<button class="tog' + (c === id ? " on" : "") + '" data-act="setslot" data-id="' + x + "." + c + '">' +
-        nomSlot(c) + "</button>").join("") + "</div>" +
+        '<button class="puce' + (c === id ? " on" : "") + '" data-act="setslot" data-id="' + x + "." + c + '">' +
+        esc(nomSlot(c)) + "</button>").join("") + "</div>" +
         '<button class="ghost" data-act="decaler" data-id="' + x + '">Décaler les séances à partir de ' + LONG[x].toLowerCase() + "</button>";
     }
   });
-  h += '<button class="ghost" data-act="resetsem">Remettre la semaine type</button>';
   if (V.tmp.semMsg) h += '<p class="small">' + esc(V.tmp.semMsg) + "</p>";
-  return h + "</div>";
-}
-
-function newWeekBtn() {
-  return '<div class="nw">' + (V.tmp.nwmsg ? '<span class="small">' + esc(V.tmp.nwmsg) + "</span>" : "") +
-    '<button class="' + (V.tmp.nw ? "cta danger nwb" : "ghost nwb") + '" data-act="newweek">' +
-    (V.tmp.nw ? "Confirmer" : "Nouvelle semaine") + "</button></div>";
+  h += '<button class="ghost" data-act="resetsem">Remettre la semaine type</button>';
+  return h + "</section>";
 }
 
 function viewSeance() {
   const d = V.day, sess = sessionFor(d);
-  let h = viewBilan() + newWeekBtn();
+  const semBtn = '<button class="puce' + (V.tmp.sem ? " on" : "") + '" data-act="sem">' + (sess ? "Déplacer la séance" : "Ma semaine") + "</button>";
+  let h = "";
 
-  if (V.tmp.sem) h += viewSemaine();
-
+  /* ── Jour sans séance ── */
   if (!sess) {
     const id = week()[d];
     const sport = id === "padel" || id === "autre";
-    h += '<div class="hero"><small>' + (id === "absent" ? "Tu n\'es pas là" : sport ? nomSlot(id) : "Repos") + "</small>" +
-         "<h1>" + (sport ? "Du sport à la place de la séance" : id === "absent" ? "Journée hors programme" : "Repos") + "</h1>" +
-         "<p>" + (sport
-           ? "Ça compte comme séance. Ne rajoute pas de muscu par-dessus si tu étais cuit : c'est la récupération qui fait progresser."
-           : "Rien de prévu. Si tu as de l\'envie mais pas de la récupération, la séance bonus est faite pour ça : arrière d\'épaule, mollets, grip, mobilité, rien de lourd.") + "</p></div>";
-    if (!sport && id !== "absent") h += '<button class="cta gym" data-act="setslot" data-id="' + d + '.bonus">Faire la séance bonus</button>';
-    h += '<button class="tog full" data-act="sem">' + (V.tmp.sem ? "Fermer" : "Ouvrir") + " Ma semaine</button>";
+    h += heros(sport ? "run" : "", id === "absent" ? "Absent" : sport ? esc(nomSlot(id)) : "",
+           sport ? "Du sport à la place de la séance" : id === "absent" ? "Journée hors programme" : "Repos",
+           sport ? "Ça compte comme séance. Ne rajoute pas de muscu par-dessus si tu es cuit : c'est la récupération qui fait progresser."
+                 : id === "absent" ? "Rien de prévu ce jour-là."
+                 : "Rien de prévu. S'il te reste de l'envie mais pas de récupération, la séance bonus est faite pour ça : arrière d'épaule, mollets, grip, mobilité, rien de lourd.");
+    h += viewBilan() + '<div class="outils">' + semBtn + "</div>";
+    if (V.tmp.sem) h += viewSemaine();
+    if (!sport && id !== "absent") h += '<button class="cta" data-act="setslot" data-id="' + d + '.bonus">Faire la séance bonus</button>';
     return h;
   }
 
+  /* ── Course ── */
   if (sess.kind === "run") {
     const r = sess.run, logged = S.runs[dayStamp(d)];
     const done = Object.keys(S.runs).length;
     const presc = d === "Dim" ? Math.min(r.min + 5 * Math.min(done, 6), 85) : r.min;
-    const t = V.tmp.run || (V.tmp.run = { min: presc, km: 7 });
+    /* distance proposée : la durée prescrite, à 6 min 20 au kilomètre */
+    const t = V.tmp.run || (V.tmp.run = { min: presc, km: Math.round(presc / 6.33 * 2) / 2 });
     const pace = t.km ? (() => { const s = t.min * 60 / t.km; return Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0"); })() : "—";
-    h += '<div class="hero run"><small>' + r.label + "</small><h1>" + presc + " min</h1>" +
-         '<div class="pair"><div><small>Allure</small><b>' + r.pace + " /km</b></div>" +
-         "<div><small>Cardio</small><b>" + r.hr + " bpm</b></div></div>" +
-         "<p>Tu dois pouvoir tenir une conversation. Tu pars toujours trop vite : surveille ta montre sur les deux premiers kilomètres, pas à la fin.</p></div>";
-    h += '<button class="tog full' + (S.padel[d] ? " on" : "") + '" data-act="padel">' + (S.padel[d] ? "✓ " : "") + "Padel ce jour-là</button>" +
-         '<button class="tog full' + (S.pw[dayStamp(d)] ? " on" : "") + '" data-act="pw">' + (S.pw[dayStamp(d)] ? "✓ " : "") + "Pre-workout Apurna avant la sortie</button>" +
-         '<button class="tog full danger" data-act="sem">Je n\'ai pas pu</button>';
-    if (S.padel[d]) h += '<p class="note warn">' + (d === "Sam"
+    h += heros("run", esc(r.label), presc + "<i>min</i>",
+           "Tu dois pouvoir tenir une conversation. Surveille ta montre sur les deux premiers kilomètres : c'est là que tu pars trop vite.",
+           '<div class="paire"><div><small>Allure</small><b>' + r.pace + "<i>/km</i></b></div>" +
+           "<div><small>Cardio</small><b>" + r.hr + "<i>bpm</i></b></div></div>");
+    h += viewBilan();
+    h += '<div class="outils"><button class="puce' + (S.padel[d] ? " on" : "") + '" data-act="padel">Padel ce jour-là</button>' + semBtn + "</div>";
+    if (V.tmp.sem) h += viewSemaine();
+    if (S.padel[d]) h += '<p class="note">' + (d === "Sam"
       ? "Le padel remplace la course facile. C'est déjà du cardio en intermittent, et ça garde tes jambes pour dimanche."
       : "Padel et sortie longue le même jour, c'est lourd. Cours 30 min le matin et garde le padel pour l'après-midi.") + "</p>";
-    h += '<h2>Ce que tu as fait</h2><div class="card pad">' +
+    h += '<h2>Ce que tu as fait</h2><section class="carte">' +
          '<div class="row"><span>Durée</span>' + stepper("run.min", "", t.min, " min") + "</div>" +
          '<div class="row"><span>Distance</span>' + stepper("run.km", "", t.km, " km", 0.1) + "</div>" +
-         '<div class="row tot"><span>Allure réalisée</span><b>' + pace + " /km</b></div>" +
-         '<button class="cta run" data-act="run.save">Enregistrer la course</button>';
-    if (logged) h += '<p class="' + (logged.fast ? "warn" : "ok") + ' small">' + (logged.fast
-      ? logged.pace + "/km, trop rapide pour de la zone 2. Prochaine sortie : même durée, 30 à 40 secondes plus lent au kilomètre."
-      : logged.pace + "/km, pile dans la zone. La prochaine sortie longue passe à " + Math.min(presc + 5, 85) + " min.") + "</p>";
-    h += "</div>";
-    h += '<p class="note">Course déjà faite et tu veux bouger quand même ? La séance bonus est complémentaire : arrière d\'épaule, mollets, grip, mobilité. Elle remplace la course sur ce jour-là.</p>' + '<button class="cta gym" data-act="setslot" data-id="' + d + '.bonus">Faire la séance bonus</button>';
+         '<div class="row tot"><span>Allure réalisée</span><b>' + pace + "<i>/km</i></b></div>" +
+         '<button class="cta" data-act="run.save">Enregistrer la course</button>';
+    if (logged) h += '<p class="etat ' + (logged.fast ? "warn" : "ok") + '"><i></i><span>' + (logged.fast
+      ? logged.pace + " au kilomètre, trop rapide pour de la zone 2. Prochaine sortie : même durée, 30 à 40 secondes plus lent au kilomètre."
+      : logged.pace + " au kilomètre, dans la zone." + (d === "Dim" ? " La prochaine sortie longue passe à " + Math.min(presc + 5, 85) + " min." : "")) + "</span></p>";
+    h += "</section>";
+    h += '<p class="note">Course déjà faite et tu veux bouger quand même ? La séance bonus est complémentaire : arrière d\'épaule, mollets, grip, mobilité. Elle remplace la course ce jour-là.</p>' +
+         '<button class="ghost" data-act="setslot" data-id="' + d + '.bonus">Faire la séance bonus à la place</button>';
     return h;
   }
 
+  /* ── Musculation ── */
   const log = S.logs[dayStamp(d)] || {};
-  h += '<div class="hero gym"><small>' + sess.tag + "</small><h1>" + sess.name + "</h1><p>" +
-       (sess.light
-         ? sess.ex.length + " exercices au lieu de " + ((sessionOf(d) || {}).ex || []).length + " : padel dans la journée, on garde les fondamentaux et on coupe les finisseurs."
-         : sess.ex.length + " exercices · " + sess.ex.reduce((a, e) => a + e.s, 0) + " séries") + "</p>" +
-       (() => { const v = avancement(d, sess);
-         if (!v.sFaites) return "";
-         return '<p class="avance"><b>' + v.exFaits + "/" + v.exTot + " exercices</b> · " +
-                v.sFaites + "/" + v.sTot + " séries" +
-                (v.sFaites >= v.sTot ? " — séance terminée." : "") + "</p>"; })() + "</div>";
+  const liste = exList(sess), v = avancement(d, sess);
+  const fini = v.sTot > 0 && v.sFaites >= v.sTot;
+  h += heros("gym" + (fini ? " fini" : ""), esc(sess.tag), esc(sess.name),
+         sess.light
+           ? plur(sess.ex.length, "exercice") + " au lieu de " + ((sessionOf(d) || {}).ex || []).length + " : padel dans la journée, on garde les fondamentaux."
+           : plur(liste.length, "exercice") + ", " + plur(v.sTot, "série"),
+         '<div class="avance"><div class="jauge"><i style="width:' + (v.sTot ? Math.round(v.sFaites / v.sTot * 100) : 0) + '%"></i></div>' +
+         "<span>" + (fini ? "Séance terminée" : v.sFaites ? v.sFaites + " sur " + v.sTot : "") + "</span></div>");
 
-  h += '<div class="duo">' +
-       '<button class="tog' + (S.padel[d] ? " on" : "") + '" data-act="padel">' + (S.padel[d] ? "✓ " : "") + "Padel en plus</button>" +
-       '<button class="tog danger" data-act="sem">Je n\'ai pas pu</button></div>';
-
-  h += '<button class="tog full' + (S.pw[dayStamp(d)] ? " on" : "") + '" data-act="pw">' +
-       (S.pw[dayStamp(d)] ? "\u2713 " : "") + "Pre-workout Apurna avant la séance</button>";
-  if (S.pw[dayStamp(d)]) h += '<p class="note warn">Une dose de 20 g : 200 mg de caféine, 3 g de créatine, 2 g de bêta-alanine. Ta créatine du goûter descend donc à 2 g aujourd\'hui. ' + caffeineWarning() + "</p>";
-
-  if (S.padel[d]) h += '<p class="note warn">Séance allégée. Ta cible du jour monte de 350 kcal de glucides. Si le padel dépasse 1 h 30, coche l\'Apurna dans l\'onglet Repas : l\'Ergymag passe alors à 2 gélules.</p>';
-
+  h += viewBilan();
 
   const edit = !!V.tmp.edit;
-  h += '<button class="tog full" data-act="editseance">' + (edit ? "Terminer la modification" : "Modifier les exercices") + "</button>";
-  if (edit) h += '<p class="small">Retire, réordonne, ajoute. Chaque exercice garde sa charge et son historique.</p>';
+  h += '<div class="outils">' +
+       '<button class="puce' + (S.padel[d] ? " on" : "") + '" data-act="padel">Padel en plus</button>' + semBtn +
+       '<button class="puce' + (edit ? " on" : "") + '" data-act="editseance">' + (edit ? "Terminer" : "Modifier les exercices") + "</button></div>";
+  if (V.tmp.sem) h += viewSemaine();
+  if (S.padel[d] && sess.light) h += '<p class="note">Séance allégée : les fondamentaux, sans les finisseurs. Tes jambes et tes épaules ont déjà leur dose avec le padel.</p>';
+  if (edit) h += '<p class="note">Retire, remonte, ajoute. Chaque exercice garde sa charge et son historique.</p>';
 
-  exList(sess).forEach((ex, i) => {
+  liste.forEach((ex, i) => {
     const kg = chargeOf(ex), done = log[ex.id], open = V.openEx === ex.id, nf = nbFaites(d, ex.id);
-    h += '<div class="card exo' + (open ? " open" : "") + '"><div class="exhead" data-act="openex" data-id="' + ex.id + '">' +
-         '<span class="idx">' + (i + 1) + "</span><div class=\"grow\"><b>" + esc(ex.n) + "</b><small>" +
-         ex.s + " × " + (ex.r[0] === ex.r[1] ? ex.r[0] : ex.r[0] + "-" + ex.r[1]) +
-         (ex.rest ? " · pause " + (ex.rest >= 60 ? (ex.rest % 60 ? Math.floor(ex.rest / 60) + " min " + (ex.rest % 60) : Math.floor(ex.rest / 60) + " min") : ex.rest + " s") : "") +
-         (ex.note ? " · " + esc(ex.note) : "") + "</small></div>" +
-         '<div class="kg' + (done ? " ok" : "") + '">' + (ex.bw && !kg ? "PDC" : fr(kg) + "<i>kg</i>") +
-         (done ? "<small>" + resume(done) + "</small>"
-               : nf ? '<small class="' + (nf >= ex.s ? "ok" : "enc") + '">' + nf + "/" + ex.s + " séries</small>" : "") + "</div>" +
-         (edit ? '<span class="exedit"><button data-act="exup" data-id="' + ex.id + '">↑</button>' +
-                 '<button data-act="exdel" data-id="' + ex.id + '">✕</button></span>' : "") +
+    const sansCharge = ex.bw && !kg;
+    h += '<article class="exo' + (open ? " open" : "") + (done ? " fait" : "") + '">' +
+         '<div class="exhead" data-act="openex" data-id="' + ex.id + '">' +
+         '<span class="idx">' + (done ? "✓" : i + 1) + '</span><div class="grow"><b>' + esc(ex.n) + "</b><small>" +
+         ex.s + " × " + fourchette(ex) + (ex.u ? " " + ex.u : "") +
+         (ex.rest ? "<i>pause " + pauseTxt(ex.rest) + "</i>" : "") + "</small></div>" +
+         '<div class="kg">' + (sansCharge ? "PDC" : fr(kg) + "<i>kg</i>") +
+         (!done && nf ? '<small class="' + (nf >= ex.s ? "ok" : "") + '">' + nf + " / " + ex.s + "</small>" : "") + "</div>" +
+         (edit ? '<span class="exedit"><button data-act="exup" data-id="' + ex.id + '" aria-label="Monter">↑</button>' +
+                 '<button data-act="exdel" data-id="' + ex.id + '" aria-label="Retirer">✕</button></span>' : "") +
          "</div>" + (edit ? "" : objLine(ex, kg, done));
+
     if (open) {
       const reps = V.tmp.reps || (V.tmp.reps = new Array(ex.s).fill(ex.r[1]));
       const kgs = V.tmp.kgs || (V.tmp.kgs = new Array(ex.s).fill(kg));
@@ -334,423 +411,227 @@ function viewSeance() {
       if (V.exTab === "tech") h += panneauTechnique(ex);
       else if (V.exTab === "prog") h += panneauProgression(ex);
       else {
-      const base = EXBASE(d, ex);
-      if (base && base.alt) {
-        h += '<div class="vars"><small>Version du jour</small><div class="duo wrap">' +
-             [{ id:base.id, n:base.n, kg:base.kg }].concat(base.alt).map((v) =>
-               '<button class="tog' + (v.id === ex.id ? " on" : "") + '" data-act="setvar" data-id="' + base.id + "." + v.id + '">' +
-               v.n + "</button>").join("") + "</div></div>";
-      }
-      h += '<small>Série par série : charge et reps</small><div class="sets">';
-      const faites = setsFaites(d, ex.id);
-      reps.forEach((r, k) => {
-        const f = !!faites[k];
-        h += '<div class="set' + (f ? " fait" : "") + '">' +
-             '<button class="setcb' + (f ? " on" : "") + '" data-act="setdone" data-id="' + k + '">' + (f ? "\u2713" : "") + "</button>" +
-             '<span class="sn">' + (k + 1) + "</span>" +
-             (charge ? stepper("skg", k, kgs[k], " kg", ex.inc || 0.5) : '<span class="pdc">poids du corps</span>') +
-             '<span class="x">\u00d7</span>' + stepper("rep", k, r, "", 1) + "</div>";
-      });
-      h += "</div>";
-      if (charge) h += '<button class="ghost" data-act="skgall">Mettre ' + fr(kgs[0]) + " kg sur toutes les séries</button>";
-      h += '<button class="cta gym" data-act="logex" data-id="' + ex.id + '">Valider l\'exercice' +
-           (nf && nf < ex.s ? " (" + nf + "/" + ex.s + " cochées)" : "") + "</button>";
-      if (done) h += '<p class="small">' + esc(done.msg) + " → prochaine fois <b>" + fr(done.next) + " kg</b></p>";
-      h += S.reset[ex.id]
-        ? '<p class="rz">Comparaisons repartent du ' + dateFr(S.reset[ex.id]) +
-          ' · <button data-act="unreset" data-id="' + ex.id + '">annuler</button></p>'
-        : '<button class="ghost" data-act="reset" data-id="' + ex.id + '">J\'ai changé l\'exécution — repartir de zéro</button>';
+        if (ex.note) h += '<p class="cue">' + esc(ex.note) + "</p>";
+        const base = EXBASE(d, ex);
+        if (base && base.alt) {
+          h += '<div class="vars"><small>Version du jour</small><div class="puces">' +
+               [{ id:base.id, n:base.n }].concat(base.alt).map((x) =>
+                 '<button class="puce' + (x.id === ex.id ? " on" : "") + '" data-act="setvar" data-id="' + base.id + "." + x.id + '">' +
+                 esc(x.n) + "</button>").join("") + "</div></div>";
+        }
+        const faites = setsFaites(d, ex.id);
+        h += '<div class="sets">';
+        reps.forEach((r, k) => {
+          const f = !!faites[k];
+          h += '<div class="set' + (f ? " fait" : "") + '">' +
+               '<button class="setcb' + (f ? " on" : "") + '" data-act="setdone" data-id="' + k + '" aria-label="Série ' + (k + 1) +
+               (f ? " faite" : "") + '">' + (f ? "✓" : k + 1) + "</button>" +
+               (charge ? stepper("skg", k, kgs[k], " kg", ex.inc || 0.5) + '<span class="x">×</span>' : "") +
+               stepper("rep", k, r, ex.u || (charge ? "" : "reps"), 1) + "</div>";
+        });
+        h += "</div>";
+        if (charge && kgs.some((k) => k !== kgs[0]))
+          h += '<button class="ghost" data-act="skgall">Mettre ' + kgTxt(kgs[0]) + " sur toutes les séries</button>";
+        h += '<button class="cta" data-act="logex" data-id="' + ex.id + '">' + (done ? "Corriger l'exercice" : "Valider l'exercice") + "</button>";
+        if (done) h += '<p class="etat ' + (done.next > Math.max.apply(null, done.kgs || [done.kg]) ? "ok" : "neutre") + '"><i></i><span>' + esc(done.msg) +
+                       (charge ? ". Prochaine fois : " + kgTxt(done.next) : "") + ".</span></p>";
+        h += S.reset[ex.id]
+          ? '<p class="rz">Comparaisons reparties de zéro le ' + dateFr(S.reset[ex.id]) +
+            ' <button data-act="unreset" data-id="' + ex.id + '">Annuler</button></p>'
+          : '<button class="lien" data-act="reset" data-id="' + ex.id + '">J\'ai changé l\'exécution : repartir de zéro</button>';
       }
       h += "</div>";
     }
-    h += "</div>";
+    h += "</article>";
   });
 
   if (edit) {
-    h += '<div class="card pad"><h3>Ajouter un exercice</h3><div class="addex">' +
-         EXALL.filter((id) => exIds(sess).indexOf(id) < 0).map((id) =>
-           '<button class="tog" data-act="exadd" data-id="' + id + '">' + esc(EXCAT[id].n) + "</button>").join("") +
-         '</div><button class="ghost" data-act="exreset">Remettre la séance d\'origine</button></div>';
+    h += '<section class="carte"><h3>Ajouter un exercice</h3><div class="puces">' +
+         EXALL.filter((id, i) => exIds(sess).indexOf(id) < 0 &&
+                               EXALL.findIndex((x) => EXCAT[x].n === EXCAT[id].n) === i).map((id) =>
+           '<button class="puce" data-act="exadd" data-id="' + id + '">' + esc(EXCAT[id].n) + "</button>").join("") +
+         '</div><button class="ghost" data-act="exreset">Remettre la séance d\'origine</button></section>';
   }
 
-  if (sess.alt) h += '<p class="note run">Semaine chargée ? Remplace cette séance par 30 min de course en zone 2. Les quatre séances de lundi à jeudi sont la priorité.</p>';
-  return h;
-}
-
-/* ═════════ REPAS ═════════ */
-
-function viewRepas() {
-  const d = V.day, meals = PLAN[d] || [], t = dayMac(d), tg = target(d), P = PHASES[S.phase];
-  let h = "";
-
-  if (!meals.length) {
-    const W = WEEKEND[d];
-    if (!W) {
-      h += '<div class="hero nut"><small>Hors plan</small><h1>Pas de repas prévus</h1><p>Rien de programmé ce jour-là.</p></div>';
-      return h + viewSupps(d);
-    }
-    const rw = S.reel[dayStamp(d)] || {};
-    h += '<div class="hero nut"><small>' + esc(W.t) + "</small><h1>" + W.kcal + " kcal</h1><p>" + esc(W.p) + "</p>" +
-         '<div class="macros" style="margin-top:12px">' +
-         '<div><small>Protéines</small><b>' + W.prot + "<i> g</i></b></div>" +
-         (W.libre
-           ? '<div><small>Glucides</small><b>libre</b></div><div><small>Lipides</small><b>libre</b></div>'
-           : '<div><small>Glucides</small><b>' + W.gluc + "<i> g</i></b></div><div><small>Lipides</small><b>" + W.lip + "<i> g</i></b></div>") +
-         "</div></div>";
-    h += '<div class="card pad reel"><h3>Relevé Foodvisor</h3>' +
-         '<p class="small">' + (W.libre
-           ? "Tu n'as pas à le faire chaque dimanche. Un par mois suffit pour vérifier que les 3 500 tiennent."
-           : "Ce que tu as vraiment mangé. C'est ce chiffre qui pilote le bilan.") + "</p>" +
-         '<div class="row"><span>Calories</span>' + stepper("rk", "", rw.kcal || 0, " kcal", 10) + "</div>" +
-         '<div class="row"><span>Protéines</span>' + stepper("rp", "", rw.p || 0, " g", 5) + "</div>" +
-         (rw.kcal ? '<p class="small ' + (rw.kcal > W.kcal ? "warn" : "ok") + '">' +
-            (rw.kcal > W.kcal ? "+" + (rw.kcal - W.kcal) + " kcal au-dessus du budget, soit " +
-               Math.round((rw.kcal - W.kcal) / 7.7) + " g de gras et " +
-               fr((rw.kcal - W.kcal) / (deficitSemaine() / 7)) + " jour de déficit annulé."
-             : (W.kcal - rw.kcal) + " kcal sous le budget : c'est du déficit en plus.") + "</p>" : "") +
-         "</div>";
-    h += '<p class="note nut">Moyenne de ta semaine avec ce week-end : <b>' + moyenneSemaine() +
-         " kcal/jour</b>, soit " + deficitSemaine() + " kcal de déficit hebdomadaire et environ " +
-         fr(deficitSemaine() / 7700) + " kg par semaine.</p>";
-    return h + viewSupps(d);
-  }
-
-  const r = S.reel[dayStamp(d)] || {};
-  h += '<div class="card pad reel"><h3>Relevé Foodvisor</h3>' +
-       '<p class="small">Ce que tu as vraiment mangé, pas ce qui était prévu. C\'est ce chiffre qui pilote le bilan.</p>' +
-       '<div class="row"><span>Calories</span>' + stepper("rk", "", r.kcal || 0, " kcal", 10) + "</div>" +
-       '<div class="row"><span>Protéines</span>' + stepper("rp", "", r.p || 0, " g", 5) + "</div></div>";
-
-  const props = propositions();
-  if (props.length && !V.tmp.propsOff) {
-    h += '<div class="card pad prop"><h3>Envie de changer cette semaine ?</h3>';
-    props.forEach((p, i) => {
-      h += '<div class="propline"><b>' + LONG[p.d] + (p.slot === "dej" ? " midi" : " soir") + "</b> : " + esc(p.cand.n) + '<span class="small">au lieu de ' + esc(p.actuel.replace(/^(Déjeuner|Dîner) — /, "")) +
-           (p.delta ? ", " + (p.delta > 0 ? "+" : "") + p.delta + " kcal, rattrapés sur les féculents" : "") + "</span>" +
-           '<span class="propbtn"><button class="tog" data-act="propok" data-id="' + i + '">Oui</button>' +
-           '<button class="tog" data-act="propno" data-id="' + i + '">Non</button></span></div>';
-    });
-    h += '<button class="ghost" data-act="propoff">Pas maintenant</button></div>';
-  }
-
-  h += '<div class="card pad"><div class="big">' + Math.round(t[0]) + "<small>" + (tg ? "/ " + tg + " kcal" : " kcal jusqu'au goûter") + "</small></div>" +
-       (tg ? bar(t[0] / tg * 100, t[0] > tg * 1.08 ? "#B4540A" : "#1C6B4A") : '<div class="bar"></div>') +
-       '<div class="macros">' +
-       ['<div><small>Protéines</small><b>' + Math.round(t[1]) + "<i>/" + P.prot + " g</i></b></div>",
-        "<div><small>Glucides</small><b>" + Math.round(t[2]) + "<i>/" + P.gluc + " g</i></b></div>",
-        "<div><small>Lipides</small><b>" + Math.round(t[3]) + "<i>/" + P.lip + " g</i></b></div>"].join("") +
-       "</div>";
-  if (S.padel[d]) h += '<p class="small warn">Padel aujourd\'hui : 350 kcal de glucides ajoutées à ta cible.</p>';
-  h += "</div>";
-
-  if (!tg) h += '<p class="note">Vendredi soir tu manges chez tes parents : le dîner n\'est pas compté ici.</p>';
-  if (PHASES[S.phase].gain < 0 && t[1] < PHASES[S.phase].prot - 10)
-    h += '<p class="note warn">' + Math.round(PHASES[S.phase].prot - t[1]) + " g de protéines sous la cible. En déficit, c'est elles qui protègent ton muscle : complète avec du skyr ou du blanc de poulet, pas avec des glucides.</p>";
-  const gap = tg ? tg - t[0] : 0;
-  if (Math.abs(gap) > 120) h += '<div class="card pad"><p class="small">' + (gap > 0
-      ? "Il manque " + Math.round(gap) + " kcal sur la journée."
-      : "Tu dépasses ta cible de " + Math.round(-gap) + " kcal.") +
-      '</p><button class="cta nut" data-act="align">Réécrire les féculents pour tomber sur la cible</button></div>';
-
-  meals.forEach((m, mi) => {
-    const mm = mac(m.f), open = V.openMeal === mi;
-    const fait = (S.done[dayStamp(d)] || {})[mi];
-    h += '<div class="card meal' + (open ? " open" : "") + '"><div class="mhead" data-act="openmeal" data-id="' + mi + '">' +
-         '<span data-act="mealdone" data-id="' + mi + '">' + checkbox(fait, "#1C6B4A") + "</span>" +
-         '<div class="grow"><b class="' + (fait ? "done" : "") + '">' + esc(m.t) +
-         "</b><small>" + m.h + " · " + Math.round(mm[1]) + " g de protéines</small></div>" +
-         '<div class="kcal">' + Math.round(mm[0]) + "</div></div>";
-    if (open) {
-      h += '<div class="mbody">';
-      m.f.forEach(([f, g], fi) => {
-        if (!FOODS[f]) return;
-        h += '<div class="item"><div class="grow"><b>' + esc(FOODS[f].n) + "</b><small>" + qtyLabel(f, g) + " · " + Math.round(FOODS[f].k * g / 100) + " kcal</small></div>" +
-             stepper("q", mi + "." + fi, g, "") +
-             '<button class="del" data-act="delfood" data-id="' + mi + "." + fi + '">✕</button></div>';
-      });
-      if (m.t.indexOf("Goûter") === 0) {
-        h += '<div class="vars"><small>Remplacer par</small><div class="duo wrap">' +
-             GOUTER_VARIANTS.map((v, vi) =>
-               '<button class="tog' + (m.t.indexOf(v.n) > 0 ? " on" : "") + '" data-act="swapg" data-id="' + mi + "." + vi + '">' + v.n + "</button>").join("") +
-             "</div></div>";
-      }
-      h += '<button class="ghost" data-act="addto" data-id="' + mi + '">+ Ajouter un aliment à ce repas</button></div>';
-    }
-    h += "</div>";
-  });
-
-  const ex = S.extras[dayStamp(d)] || [];
-  h += "<h2>Hors plan</h2>";
-  ex.forEach((e, i) => {
-    h += '<div class="card item pad"><div class="grow"><b>' + esc(FOODS[e.k] ? FOODS[e.k].n : e.k) + "</b><small>" +
-         qtyLabel(e.k, e.g) + " · " + Math.round(FOODS[e.k].k * e.g / 100) + " kcal</small></div>" +
-         '<button class="del" data-act="delextra" data-id="' + i + '">✕</button></div>';
-  });
-  h += V.picker != null ? pickerHTML() : '<button class="ghost" data-act="picker" data-id="x">+ J\'ai mangé autre chose</button>';
-
-  return h + viewSupps(d);
-}
-
-function pickerHTML() {
-  const q = (V.tmp.q || "").toLowerCase();
-  const list = Object.keys(FOODS).filter((k) => FOODS[k].n.toLowerCase().indexOf(q) >= 0).slice(0, 7);
-  let h = '<div class="card pad picker"><input id="q" placeholder="Chercher un aliment" value="' + esc(V.tmp.q || "") + '">';
-  if (V.tmp.pick) {
-    const F = FOODS[V.tmp.pick], g = V.tmp.pg;
-    h += '<div class="row"><span>' + esc(F.n) + "</span>" + stepper("pg", "", g, " " + F.u) + "</div>" +
-         '<p class="small">' + Math.round(F.k * g / 100) + " kcal · " + fr(F.p * g / 100) + " g de protéines</p>" +
-         '<button class="cta nut" data-act="addfood">Ajouter</button>';
-  } else {
-    list.forEach((k) => { h += '<div class="opt" data-act="pick" data-id="' + k + '"><span>' + esc(FOODS[k].n) + "</span><small>" + FOODS[k].k + " kcal /100 " + FOODS[k].u + "</small></div>"; });
-  }
-  return h + '<button class="ghost" data-act="closepicker">Annuler</button></div>';
-}
-
-function viewSupps(d) {
-  const list = supplements(d), ck = S.supps[dayStamp(d)] || {}, ap = !!S.apurna[dayStamp(d)];
-  let h = "<h2>Compléments du jour</h2><div class=\"card\">";
-  list.forEach((s) => {
-    h += '<div class="line" data-act="supp" data-id="' + s.id + '">' + checkbox(ck[s.id], "#1C6B4A") +
-         '<div class="grow"><b class="' + (ck[s.id] ? "done" : "") + '">' + esc(s.n) + "</b><small>" + esc(s.w) + "</small></div><i>" + esc(s.d) + "</i></div>";
-  });
-  h += '<div class="line" data-act="apurna">' + checkbox(ap, "#B4540A") +
-       '<div class="grow"><small>Apurna aujourd\'hui, en pre-workout ou pendant l\'effort — Ergymag limité à 2 gélules. La barre Apurna du goûter ne compte pas.</small></div></div></div>';
+  if (sess.alt) h += '<p class="note">Semaine chargée ? Remplace cette séance par 30 min de course en zone 2. Les quatre séances de lundi à jeudi sont la priorité.</p>';
   return h;
 }
 
 /* ═════════ POIDS ═════════ */
 
-/* ═════════ SAISON ═════════ */
-
 function viewSaison() {
   const C = calendrier();
   const encours = C.blocs.filter((b) => b.now)[0];
   const prochain = C.blocs.filter((b) => b.d0 > iso())[0];
-  let h = '<h2>Ta saison</h2>';
+  let h = "<h2>Ta saison</h2>";
 
   if (encours) {
     const reste = semEntre(iso(), encours.d1);
-    h += '<div class="card pad sais"><h3>' + esc(encours.n) + "</h3>" +
-         "<p>" + esc(encours.but) + "</p>" +
-         '<p class="small"><b>' + (reste > 0 ? reste + " semaine" + (reste > 1 ? "s" : "") + " restante" + (reste > 1 ? "s" : "") : "Dernière semaine") +
-         "</b>" + (prochain ? " · ensuite " + esc(prochain.n).toLowerCase() : "") + "</p></div>";
+    h += '<section class="carte sais"><h3>' + esc(encours.n) + "</h3><p>" + esc(encours.but) + "</p>" +
+         '<p class="small"><b>' + (reste > 0 ? plur(reste, "semaine") + " restante" + (reste > 1 ? "s" : "") : "Dernière semaine") +
+         "</b>" + (prochain ? ", puis " + esc(prochain.n).toLowerCase() : "") + "</p></section>";
   }
 
-  h += '<div class="card">';
+  h += '<section class="carte liste">';
   C.blocs.forEach((b) => {
     h += '<div class="saisrow' + (b.now ? " on" : "") + (b.evt ? " evt" : "") + '">' +
-         '<div class="grow"><b>' + esc(b.n) + "</b><small>" + (b.evt ? dateFr(b.d0) : dateFr(b.d0) + " → " + dateFr(b.d1)) + "</small></div>" +
-         "<i>" + (b.evt ? "course" : b.sem + " sem") + "</i></div>";
+         '<div class="grow"><b>' + esc(b.n) + "</b><small>" + (b.evt ? dateFr(b.d0) : dateFr(b.d0) + " au " + dateFr(b.d1)) + "</small></div>" +
+         "<i>" + (b.evt ? "course" : b.sem + " sem.") + "</i></div>";
   });
-  h += "</div>";
+  h += "</section>";
 
   C.alerte.forEach((m) => { h += '<p class="note warn">' + esc(m) + "</p>"; });
 
-  h += '<div class="card pad"><h3>Les trois dates</h3>' +
+  h += '<section class="carte"><h3>Les trois dates</h3>' +
        '<p class="small">Tout le reste se recalcule à partir d\'elles : le bloc Hyrox remonte de 12 semaines avant la course, le bloc marathon de 18.</p>' +
        [["fin", "Fin de la sèche"], ["hyrox", "Hyrox"], ["marathon", "Marathon"]].map(([k, n]) =>
          '<div class="row"><span>' + n + '</span><input type="date" id="dt_' + k + '" data-dte="' + k + '" value="' + C.R[k] + '"></div>').join("") +
        (S.races.fin || S.races.hyrox || S.races.marathon
          ? '<button class="ghost" data-act="racesreset">Revenir aux dates proposées</button>' : "") +
-       "</div>";
+       "</section>";
   return h;
+}
+
+/* Les pesées des 28 derniers jours, la droite ajustée et son éventail
+   d'incertitude. Une pesée isolée ne dit rien ; la pente, si. */
+function grafPoids(t) {
+  const w = S.weights.slice().sort((a, b) => a.d.localeCompare(b.d));
+  const jour = (d) => new Date(d + "T12:00:00").getTime() / 86400000;
+  const fin = jour(w[w.length - 1].d);
+  const pts = w.map((p) => ({ x: jour(p.d) - fin, y: p.kg, d: p.d })).filter((p) => p.x >= -42);
+  if (pts.length < 2) return "";
+  const W = 320, HT = 150, xg = 34, xd = W - 12, y0 = 14, y1 = HT - 24;
+  const x0 = Math.min(-28, pts[0].x);
+  let mn = Math.min.apply(null, pts.map((p) => p.y)), mx = Math.max.apply(null, pts.map((p) => p.y));
+  const pad = Math.max(0.3, (mx - mn) * 0.15); mn -= pad; mx += pad;
+  const X = (x) => xg + (xd - xg) * (x - x0) / (0 - x0);
+  const Y = (v) => y1 - (y1 - y0) * (v - mn) / (mx - mn);
+  const f1 = (v) => v.toFixed(1);
+  const sel = V.tmp.wpt != null && pts[V.tmp.wpt] ? V.tmp.wpt : pts.length - 1;
+
+  let svg = '<svg class="graf" viewBox="0 0 ' + W + " " + HT + '" role="img" aria-label="Pesées et tendance">';
+  /* repères horizontaux : deux valeurs rondes suffisent */
+  const pas = (mx - mn) > 3 ? 1 : 0.5;
+  for (let v = Math.ceil(mn / pas) * pas; v <= mx; v += pas)
+    svg += '<line class="gr" x1="' + xg + '" y1="' + f1(Y(v)) + '" x2="' + xd + '" y2="' + f1(Y(v)) + '"/>' +
+           '<text class="ax" x="' + (xg - 6) + '" y="' + f1(Y(v) + 3.5) + '" text-anchor="end">' + fr(v) + "</text>";
+
+  if (t && t.ok) {
+    /* la droite passe par le centre du nuage ; l'éventail montre les pentes
+       que les données n'excluent pas */
+    const dans = pts.filter((p) => p.x >= -28);
+    const cx = dans.reduce((a, p) => a + p.x, 0) / dans.length, cy = t.a + t.b * cx;
+    const xa = dans[0].x, xb = 0;
+    const yl = (b, x) => cy + b * (x - cx);
+    const bB = t.bas / 7, bH = t.haut / 7;
+    svg += '<path class="evt" d="M' + f1(X(xa)) + " " + f1(Y(yl(bB, xa))) + "L" + f1(X(cx)) + " " + f1(Y(cy)) + "L" + f1(X(xb)) + " " + f1(Y(yl(bB, xb))) +
+           "L" + f1(X(xb)) + " " + f1(Y(yl(bH, xb))) + "L" + f1(X(cx)) + " " + f1(Y(cy)) + "L" + f1(X(xa)) + " " + f1(Y(yl(bH, xa))) + 'Z"/>' +
+           '<path class="ln" d="M' + f1(X(xa)) + " " + f1(Y(yl(t.b, xa))) + "L" + f1(X(xb)) + " " + f1(Y(yl(t.b, xb))) + '"/>';
+  }
+  pts.forEach((p, i) => {
+    svg += '<circle class="pt' + (i === sel ? " sel" : "") + '" cx="' + f1(X(p.x)) + '" cy="' + f1(Y(p.y)) + '" r="' + (i === sel ? 4.5 : 3.2) + '"/>';
+  });
+  svg += '<text class="ax" x="' + xg + '" y="' + (HT - 6) + '">' + dateCourte(pts[0].d) + "</text>" +
+         '<text class="ax" x="' + xd + '" y="' + (HT - 6) + '" text-anchor="end">' + dateCourte(pts[pts.length - 1].d) + "</text>";
+  pts.forEach((p, i) => {
+    const g = i ? (X(p.x) + X(pts[i - 1].x)) / 2 : 0, d = i < pts.length - 1 ? (X(p.x) + X(pts[i + 1].x)) / 2 : W;
+    svg += '<rect class="hit" x="' + f1(g) + '" y="0" width="' + f1(Math.max(1, d - g)) + '" height="' + HT + '" data-act="wpt" data-id="' + i + '"/>';
+  });
+  svg += "</svg>";
+  return '<div class="grafbox"><p class="lect"><b>' + dateFr(pts[sel].d) + "</b>" + kgTxt(pts[sel].y) + "</p>" + svg +
+         (t && t.ok ? '<p class="grafpied">Points : tes pesées. Trait : la tendance sur 28 jours. Zone claire : les pentes que tes pesées n\'excluent pas.</p>' : "") + "</div>";
 }
 
 function viewPoids() {
   const P = PHASES[S.phase], w = S.weights, dow = new Date().getDay();
   const weighDay = dow === 1 || dow === 3 || dow === 5, doneToday = w.some((x) => x.d === iso());
-  const kg = V.tmp.w != null ? V.tmp.w : (V.tmp.w = w.length ? w[w.length - 1].kg : 81);
-  let h = '<div class="hero wgt"><small>' + P.n + " · " + P.d + "</small><h1>" + P.goal + "</h1>" +
-          '<div class="duo phases">' +
-          Object.keys(PHASES).map((k) => '<button class="tog ph' + (S.phase === k ? " on" : "") + '" data-act="phase" data-id="' + k + '"><b>' + PHASES[k].n + "</b><i>" + PHASES[k].kcal + " kcal</i></button>").join("") +
-          "</div></div>";
+  const der = w.length ? w[w.length - 1] : null;
+  const kg = V.tmp.w != null ? V.tmp.w : (V.tmp.w = der ? der.kg : 75);
+  const t = tendance();
 
-  h += viewSaison();
+  let h = heros("poids", esc(P.n), der ? fr(der.kg) + "<i>kg</i>" : "Pas encore de pesée",
+            der ? "Pesée " + (der.d === iso() ? "de ce matin" : ilYA(der.d)) + ". Objectif de la phase : " + P.goal.charAt(0).toLowerCase() + P.goal.slice(1) + "."
+                : "Objectif de la phase : " + P.goal.charAt(0).toLowerCase() + P.goal.slice(1) + ".");
 
-  h += "<h2>" + (weighDay && !doneToday ? "Pèse-toi ce matin" : "Pesée") + '</h2><div class="card pad">';
-  if (weighDay && !doneToday) h += '<p class="small wgt">Jour de pesée. Au réveil, après être passé aux toilettes, avant de boire.</p>';
+  h += "<h2>" + (weighDay && !doneToday ? "Pèse-toi ce matin" : "Pesée") + '</h2><section class="carte">';
+  if (weighDay && !doneToday) h += '<p class="small">Jour de pesée. Au réveil, après être passé aux toilettes, avant de boire.</p>';
   h += '<div class="row"><span>Poids</span>' + stepper("w", "", kg, " kg", 0.1) + "</div>" +
-       '<button class="cta wgt" data-act="savew">' + (doneToday ? "Corriger la pesée du jour" : "Enregistrer") + "</button></div>";
+       '<button class="cta" data-act="savew">' + (doneToday ? "Corriger la pesée du jour" : "Enregistrer la pesée") + "</button></section>";
 
-  if (w.length > 1) {
-    const pts = w.slice(-14), mn = Math.min.apply(null, pts.map((p) => p.kg)) - 0.4, mx = Math.max.apply(null, pts.map((p) => p.kg)) + 0.4;
-    const pl = pts.map((p, i) => (i / (pts.length - 1) * 296 + 2) + "," + (86 - (p.kg - mn) / (mx - mn) * 80)).join(" ");
-    h += '<h2>Tendance</h2><div class="card pad"><svg viewBox="0 0 300 92" preserveAspectRatio="none" class="spark">' +
-         '<polyline points="' + pl + '"/>' + pts.map((p, i) => '<circle cx="' + (i / (pts.length - 1) * 296 + 2) + '" cy="' + (86 - (p.kg - mn) / (mx - mn) * 80) + '" r="2.2"/>').join("") +
-         '</svg><div class="ends"><span>' + fr(pts[0].kg) + " kg</span><span>" + fr(pts[pts.length - 1].kg) + " kg</span></div></div>";
-  }
-
-  const tr = trend();
-  if (tr) {
-    h += '<h2>Ajustement</h2><div class="card pad"><p>' + tr.msg + "</p>";
-    if (tr.adj < 0 && auPlancher()) {
-      h += '<p class="small warn">Tu es au plancher de ' + plancher() + " kcal. Ne descends pas plus bas : à ce stade, c'est la dépense qu'on augmente (une marche de 30 min par jour), pas l'assiette qu'on coupe.</p>";
-    } else if (tr.adj) {
-      h += '<button class="cta wgt" data-act="applyadj" data-id="' + tr.adj + '">Réécrire mes portions (' + (tr.adj > 0 ? "+" : "") + tr.adj + " kcal)</button>" +
-           '<p class="small">Les féculents de la semaine sont recalculés, et la liste de courses suit.</p>';
-    }
-    h += "</div>";
+  h += '<h2>Tendance</h2><section class="carte">';
+  if (t.ok) {
+    h += '<p class="etat ' + (t.verdict === "cible" ? "ok" : "neutre") + '"><i></i><span>' + penteTxt(t) + "</span></p>" + grafPoids(t);
+    if (t.age > 9) h += '<p class="small">Dernière pesée il y a ' + t.age + " jours : la tendance date un peu.</p>";
+    h += '<p class="small">Trois pesées par semaine suffisent, toujours dans les mêmes conditions. Avec moins, l\'intervalle s\'élargit et la pente ne veut plus dire grand-chose.</p>';
   } else {
-    h += '<p class="note">Il faut six pesées, soit deux semaines, avant de calculer une tendance fiable. Une pesée isolée ne dit rien : sel, eau et digestion font bouger le chiffre d\'un kilo dans la journée.</p>';
+    h += grafPoids(null) + '<p class="small">' + esc(t.msg) + " Une pesée isolée ne dit rien : sel, eau et digestion font bouger le chiffre d'un kilo dans la journée.</p>";
   }
-  if (S.offset) h += '<p class="small">Cible actuelle : ' + (PHASES[S.phase].kcal + S.offset) + " kcal (" + (S.offset > 0 ? "+" : "") + S.offset + " d'ajustement)</p>";
-  return h;
-}
+  h += "</section>";
 
-/* ═════════ COURSES ═════════ */
+  h += '<h2>Phase en cours</h2><div class="phases">' +
+       Object.keys(PHASES).map((k) => '<button class="tog' + (S.phase === k ? " on" : "") + '" data-act="phase" data-id="' + k + '"><b>' +
+         PHASES[k].n + "</b><i>" + (PHASES[k].gain ? signe(PHASES[k].gain) + " kg/sem." : "stable") + "</i></button>").join("") +
+       "</div>";
 
-function viewCourses() {
-  const L = shoppingList();
-  S.stock = S.stock || {};
-  let all = 0, stocked = [];
-  Object.keys(L).forEach((r) => L[r].forEach((it) => { if (S.stock[it.f]) stocked.push(it); else all++; }));
-  all += S.manual.length;
-  const done = Object.keys(S.shop).filter((k) => S.shop[k] && !S.stock[k]).length;
-  const manuelKeys = S.manual.map((m) => m.id);
-  let h = '<div class="hero shop"><small>Lundi</small><h1>Liste de courses</h1>' +
-          "<p>Calculée depuis ton plan : tous les repas du lundi matin au vendredi midi, goûters compris. Si tu changes une portion, la liste change aussi.</p>" +
-          "<p>" + done + " sur " + all + " à acheter</p></div>";
-  Object.keys(RAYONS).forEach((r) => {
-    if (!L[r]) return;
-    const items = L[r].filter((it) => !S.stock[it.f]);
-    if (!items.length) return;
-    h += "<h2>" + RAYONS[r] + '</h2><div class="card">';
-    items.forEach((it) => {
-      const on = S.shop[it.f];
-      h += '<div class="line" data-act="shop" data-id="' + it.f + '">' + checkbox(on, "#9A6A0B") +
-           '<span class="grow ' + (on ? "done" : "") + '">' + esc(it.n) + "</span><i>" + it.q + "</i>" +
-           '<button class="tag" data-act="stock" data-id="' + it.f + '">j\'en ai</button></div>';
-    });
-    h += "</div>";
-  });
-  h += "<h2>Ajoutés à la main</h2>";
-  if (S.manual.length) {
-    h += '<div class="card">';
-    S.manual.forEach((m) => {
-      const on = S.shop[m.id];
-      h += '<div class="line"><span data-act="shop" data-id="' + m.id + '">' + checkbox(on, "#9A6A0B") + "</span>" +
-           '<span class="grow ' + (on ? "done" : "") + '" data-act="shop" data-id="' + m.id + '">' + esc(m.n) + "</span>" +
-           (m.q ? "<i>" + esc(m.q) + "</i>" : "") +
-           '<button class="del" data-act="delman" data-id="' + m.id + '">✕</button></div>';
-    });
-    h += "</div>";
-  }
-  if (V.tmp.addman) {
-    h += '<div class="card pad"><input id="ma" placeholder="Article" value="' + esc(V.tmp.ma || "") + '">' +
-         '<input id="mq" placeholder="Quantité (facultatif)" value="' + esc(V.tmp.mq || "") + '">' +
-         '<button class="cta shop" data-act="saveman">Ajouter à la liste</button>' +
-         '<button class="ghost" data-act="cancelman">Annuler</button></div>';
-  } else {
-    h += '<button class="ghost" data-act="addman">+ Ajouter un article</button>';
-  }
-
-  h += "<h2>Déjà chez moi</h2>";
-  if (!stocked.length) {
-    h += '<p class="note">Ce que tu ramènes de chez tes parents ou qu\'il te reste du placard : appuie sur « j\'en ai » à droite de la ligne. L\'aliment reste dans tes repas, il sort juste de la liste à acheter.</p>';
-  } else {
-    h += '<div class="card">';
-    stocked.forEach((it) => {
-      h += '<div class="line" data-act="stock" data-id="' + it.f + '">' + checkbox(true, "#8A8F99") +
-           '<span class="grow done">' + esc(it.n) + "</span><i>" + it.q + "</i></div>";
-    });
-    h += "</div>";
-  }
-  return h + '<button class="ghost" data-act="resetshop">Vider la liste</button>';
+  return h + viewSaison();
 }
 
 /* ═════════ RÉGLAGES ═════════ */
 
 function viewReglages() {
-  let h = '<div class="hero"><h1>Réglages</h1><p>Les valeurs viennent de tes captures Foodvisor. Corrige ce qui ne colle pas à tes étiquettes : tout le reste se recalcule.</p></div>';
-  h += "<h2>Corriger un aliment</h2>";
-  if (V.editFood) {
-    const F = FOODS[V.editFood];
-    h += '<div class="card pad"><b>' + esc(F.n) + "</b>" +
-         ["k", "p", "c", "l"].map((f) => '<div class="row"><span>' + ({ k:"kcal", p:"protéines", c:"glucides", l:"lipides" })[f] +
-           " /100 " + F.u + "</span>" + stepper("f." + f, "", F[f], "") + "</div>").join("") +
-         '<button class="cta" data-act="closefood">Terminé</button></div>';
-  } else {
-    h += '<div class="card">' + Object.keys(FOODS).sort((a, b) => FOODS[a].n.localeCompare(FOODS[b].n)).map((k) =>
-      '<div class="line" data-act="editfood" data-id="' + k + '"><span class="grow">' + esc(FOODS[k].n) + "</span><i>" + FOODS[k].k + " kcal</i></div>").join("") + "</div>";
-  }
-  h += "<h2>Mes compléments</h2><div class=\"card pad\">";
-  (S.perso || []).forEach((p) => {
-    h += '<div class="line"><span class="grow"><b>' + esc(p.n) + "</b><small>" +
-         esc([p.d, p.w].filter(Boolean).join(", ")) + (p.jours === "seance" ? ", jours de muscu seulement" : "") +
-         "</small></span>" + '<button class="del" data-act="delperso" data-id="' + p.id + '">✕</button></div>';
-  });
-  ["crea","whey","om3","vitd","mag","multi","spi","ergyp","gluta"].forEach((id) => {
-    const noms = { crea:"Créatine", whey:"Whey", om3:"Oméga-3", vitd:"Ergy D Plus", mag:"Ergymag",
-                   multi:"MultiCÉBÉ", spi:"Spiruline", ergyp:"Ergyphilus", gluta:"L-Glutamine (non pris)" };
-    const off = !!S.suppOff[id];
-    h += '<div class="line" data-act="supptoggle" data-id="' + id + '">' + checkbox(!off, "#1C6B4A") +
-         '<span class="grow ' + (off ? "done" : "") + '">' + noms[id] + "</span></div>";
-  });
-  h += '<p class="small">Décoche ce que tu ne prends plus : il disparaît de la checklist du jour.</p>';
-  h += '<input id="pn" placeholder="Nom, par exemple bêta-alanine" value="' + esc(V.tmp.pn || "") + '">' +
-       '<input id="pd" placeholder="Dose, par exemple 3 g" value="' + esc(V.tmp.pd || "") + '">' +
-       '<input id="pw2" placeholder="Moment, par exemple au goûter" value="' + esc(V.tmp.pw2 || "") + '">' +
-       '<div class="duo"><button class="tog' + (V.tmp.pj === "seance" ? " on" : "") + '" data-act="persojours" data-id="seance">Jours de muscu</button>' +
-       '<button class="tog' + (V.tmp.pj !== "seance" ? " on" : "") + '" data-act="persojours" data-id="tous">Tous les jours</button></div>' +
-       '<button class="cta" data-act="addperso">Ajouter à ma checklist</button></div>';
-
-  h += "<h2>Ajouter par code-barres</h2><div class=\"card pad\">" +
-       '<input id="bc" inputmode="numeric" placeholder="Tape les chiffres sous le code-barres" value="' + esc(V.tmp.bc || "") + '">' +
-       '<button class="cta" data-act="scan">Chercher dans Open Food Facts</button>' +
-       (V.tmp.bcmsg ? '<p class="small">' + esc(V.tmp.bcmsg) + "</p>" : "") +
-       '<p class="small">Base publique et gratuite, il faut du réseau. Le produit rejoint ton catalogue et tu peux corriger ses valeurs juste au-dessus.</p></div>';
-  h += "<h2>Données</h2><div class=\"card pad\">" +
-       '<button class="ghost" data-act="export">Exporter mes données</button>' +
-       '<button class="ghost" data-act="resetplan">Remettre le plan de repas d\'origine</button>' +
-       '<button class="ghost danger" data-act="wipe">Tout effacer</button></div>';
+  const nLogs = Object.keys(S.logs).length;
+  let h = '<h2>Tes données</h2><section class="carte">' +
+          '<p class="small">' + plur(nLogs, "séance") + " et " + plur(S.weights.length, "pesée") + " enregistrées sur ce téléphone, nulle part ailleurs. " +
+          "L'export crée un fichier à garder ou à envoyer avec tes captures Foodvisor pour le point de la semaine.</p>" +
+          '<button class="cta" data-act="export">Exporter mes données</button>' +
+          '<button class="ghost danger" data-act="wipe">Tout effacer</button></section>';
 
   /* Savoir quelle version tourne vraiment. Sans ça, impossible de distinguer
      « mes fichiers ne sont pas partis » de « mon téléphone garde l'ancienne ». */
-  h += '<h2>Version</h2><div class="card pad">' +
+  h += '<h2>Version</h2><section class="carte">' +
        '<div class="row"><span>Version installée</span><b>' + VERSION + "</b></div>" +
        '<div class="row"><span>Mise en ligne</span><b>' + VERSION_DATE + "</b></div>" +
        '<button class="ghost" data-act="maj">Forcer la mise à jour</button>' +
        '<p class="small">Si le numéro ne correspond pas à la dernière version envoyée sur GitHub, ' +
-       "c'est le téléphone qui garde l'ancienne : ce bouton vide le cache et recharge.</p></div>";
+       "c'est le téléphone qui garde l'ancienne : ce bouton vide le cache et recharge. Tes données ne bougent pas.</p></section>";
   return h;
 }
 
 /* ═════════ CHRONO ═════════ */
 
 const CHPRE = [30, 45, 60, 75, 90, 120, 150, 180];
-const secTxt = (s) => (s >= 60 ? (s % 60 ? Math.floor(s / 60) + " min " + (s % 60) + " s" : Math.floor(s / 60) + " min") : s + " s");
 
 function viewChrono() {
   const d = V.day, sess = sessionFor(d), r = chronoReste(), actif = chronoActif();
-  let h = '<div class="hero wgt"><small>' + (actif ? esc(CHRO.nom || "Repos") : "Temps de repos") + "</small>" +
-          '<h1 id="chbig">' + mmss(r) + "</h1><p>" +
-          (actif
-            ? (CHRO.run ? "Il tourne même si tu changes d'onglet. Vibration et bip à la fin."
-                        : r > 0 ? "En pause." : "Repos fini : série suivante.")
-            : "Il se lance tout seul quand tu coches une série. Ou choisis une durée ici.") + "</p></div>";
+  let h = heros("chrono" + (actif ? (CHRO.run ? " tourne" : r > 0 ? " pause" : " fini") : ""),
+            actif ? esc(CHRO.nom || "Repos") : "Temps de repos",
+            '<span id="chbig">' + mmss(r) + "</span>",
+            actif ? (CHRO.run ? "Il tourne même si tu changes d'onglet. Vibration et bip à la fin."
+                              : r > 0 ? "En pause." : "Repos fini : série suivante.")
+                  : "Il se lance tout seul quand tu coches une série. Ou choisis une durée ici.",
+            '<div class="jauge"><i id="chbar" style="width:' + (actif && CHRO.dur ? Math.round(r / CHRO.dur * 100) : 0) + '%"></i></div>');
 
-  if (actif) h += '<div class="duo">' +
+  if (actif) h += '<div class="trio">' +
     '<button class="tog" data-act="ch.moins">− 15 s</button>' +
     '<button class="tog" data-act="ch.pause">' + (CHRO.run ? "Pause" : "Reprendre") + "</button>" +
     '<button class="tog" data-act="ch.plus">+ 15 s</button></div>' +
     '<button class="ghost danger" data-act="ch.stop">Arrêter</button>';
 
-  h += '<h2>Départ rapide</h2><div class="card pad"><div class="chpre">' +
+  h += '<h2>Départ rapide</h2><div class="chpre">' +
        CHPRE.map((s) => '<button class="tog' + (actif && CHRO.dur === s ? " on" : "") +
-         '" data-act="ch.go" data-id="' + s + '">' + mmss(s) + "</button>").join("") + "</div></div>";
+         '" data-act="ch.go" data-id="' + s + '">' + mmss(s) + "</button>").join("") + "</div>";
 
   if (sess && sess.kind === "gym") {
-    const l = exList(sess);
-    h += "<h2>Les pauses de ta séance du jour</h2><div class=\"card\">";
-    l.forEach((ex) => {
+    h += "<h2>Les pauses de ta séance</h2><section class=\"carte liste\">";
+    exList(sess).forEach((ex) => {
       const nf = nbFaites(d, ex.id);
       h += '<div class="line"><div class="grow"><b>' + esc(ex.n) + "</b><small>" +
-           ex.s + " séries" + (nf ? " · " + nf + " cochée" + (nf > 1 ? "s" : "") : "") + "</small></div>" +
-           '<button class="tog chlance" data-act="ch.ex" data-id="' + ex.id + '">' + secTxt(ex.rest || 90) + "</button></div>";
+           plur(ex.s, "série") + (nf ? ", " + nf + " cochée" + (nf > 1 ? "s" : "") : "") + "</small></div>" +
+           '<button class="puce" data-act="ch.ex" data-id="' + ex.id + '">' + pauseTxt(ex.rest || 90) + "</button></div>";
     });
-    h += "</div><p class=\"small\">Ces durées viennent du programme. Les gros mouvements demandent 2 à 3 min : si tu coupes à 1 min sur le bench ou le squat, tu perds des reps et tu crois que tu stagnes.</p>";
+    h += "</section><p class=\"note\">Ces durées viennent du programme. Les gros mouvements demandent 2 à 3 min : si tu coupes à 1 min sur le bench ou le squat, tu perds des répétitions et tu crois que tu stagnes.</p>";
   } else {
-    h += '<p class="note">Pas de séance de muscu aujourd\'hui. Les durées au-dessus restent dispo pour du gainage ou du fractionné.</p>';
+    h += '<p class="note">Pas de séance de muscu aujourd\'hui. Les durées au-dessus restent disponibles pour du gainage ou du fractionné.</p>';
   }
   return h;
 }
@@ -761,18 +642,27 @@ function chronoPeint() {
   const r = chronoReste(), actif = chronoActif();
   document.body.classList.toggle("ch", actif);
   const big = $("#chbig"); if (big) big.textContent = mmss(r);
+  const bar = $("#chbar"); if (bar) bar.style.width = (actif && CHRO.dur ? Math.min(100, r / CHRO.dur * 100) : 0) + "%";
   if (!actif) { el.className = ""; el.innerHTML = ""; return; }
   const fini = r <= 0 && !CHRO.run;
   el.className = "on" + (fini ? " fini" : CHRO.run ? "" : " pause");
-  el.innerHTML = '<b>' + mmss(r) + "</b>" +
-    '<span>' + (fini ? "Série suivante" : CHRO.run ? esc(CHRO.nom || "Repos") : "En pause") + "</span>" +
-    (fini ? "" : '<button data-act="ch.plus">+15</button><button data-act="ch.pause">' + (CHRO.run ? "❙❙" : "▶") + "</button>") +
-    '<button data-act="ch.stop">✕</button>';
+  el.style.setProperty("--p", (CHRO.dur ? Math.max(0, Math.min(100, (1 - r / CHRO.dur) * 100)) : 0) + "%");
+  el.innerHTML = "<b>" + mmss(r) + "</b>" +
+    "<span>" + (fini ? "Série suivante" : CHRO.run ? esc(CHRO.nom || "Repos") : "En pause") + "</span>" +
+    (fini ? "" : '<button data-act="ch.plus" aria-label="Ajouter 15 secondes">+15</button><button data-act="ch.pause" aria-label="' +
+                 (CHRO.run ? "Pause" : "Reprendre") + '">' + (CHRO.run ? "❙❙" : "▶") + "</button>") +
+    '<button data-act="ch.stop" aria-label="Arrêter">✕</button>';
 }
 
 /* ═════════ RENDU ═════════ */
 
-const TABS = [["seance","Séance"],["chrono","Chrono"],["repas","Repas"],["poids","Poids"],["courses","Courses"],["reglages","Réglages"]];
+const TABS = [["seance","Séance"],["chrono","Chrono"],["poids","Poids"],["reglages","Réglages"]];
+const ICO = {
+  seance:   '<path d="M6.5 6v12M3.5 9v6M17.5 6v12M20.5 9v6M6.5 12h11"/>',
+  chrono:   '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M9.5 2.75h5M12 2.75V6"/>',
+  poids:    '<rect x="3.5" y="4" width="17" height="16.5" rx="4"/><path d="M8 10.5a5.7 5.7 0 0 1 8 0M12 12.5l1.8-3"/>',
+  reglages: '<path d="M4 7.5h9M17.5 7.5H20M4 16.5h2.5M11 16.5h9"/><circle cx="15.2" cy="7.5" r="2.2"/><circle cx="8.8" cy="16.5" r="2.2"/>',
+};
 
 function render() {
   /* Le questionnaire d'accueil recouvre tout : un nouvel arrivant n'a rien
@@ -786,25 +676,26 @@ function render() {
   }
   onbEl.innerHTML = "";
   document.body.classList.remove("onbon");
+  document.body.dataset.tab = V.tab;
 
-  const d = V.day, sess = DEFAULT_PROGRAM[d];
-  $("#head").innerHTML =
-    '<div class="hrow"><b>' + LONG[d] + (d === todayKey() ? '<span> · aujourd\'hui</span>' : "") + "</b>" +
-    "<i>" + (target(d) || baseTarget()) + " kcal</i></div>" +
-    '<div class="days">' + DAYS.map((x) =>
-      '<button class="' + (x === V.day ? "on " : "") + (S.skipped[x] ? "miss" : "") + '" data-act="day" data-id="' + x + '">' + x + "</button>").join("") + "</div>";
+  const d = V.day, jours = V.tab === "seance" || V.tab === "chrono";
+  $("#head").innerHTML = jours
+    ? '<div class="days">' + DAYS.map((x) => {
+        const s = sessionOf(x), fait = faitCetteSemaine(x);
+        return '<button class="' + (x === d ? "on " : "") + (x === todayKey() ? "auj " : "") + (S.skipped[x] ? "miss" : "") +
+               '" data-act="day" data-id="' + x + '" aria-label="' + LONG[x] + (fait ? ", fait" : "") + '">' + x +
+               '<i class="' + (fait ? "ok" : s ? s.kind : "off") + '"></i></button>';
+      }).join("") + "</div>"
+    : '<p class="titre">' + (V.tab === "poids" ? "Poids et saison" : "Réglages") + "</p>";
   $("#main").innerHTML =
     V.tab === "seance" ? viewSeance() :
     V.tab === "chrono" ? viewChrono() :
-    V.tab === "repas" ? viewRepas() :
-    V.tab === "poids" ? viewPoids() :
-    V.tab === "courses" ? viewCourses() : viewReglages();
+    V.tab === "poids" ? viewPoids() : viewReglages();
   $("#nav").innerHTML = TABS.map(([id, n]) =>
-    '<button class="' + (V.tab === id ? "on" : "") + '" data-act="tab" data-id="' + id + '">' + n + "</button>").join("");
+    '<button class="' + (V.tab === id ? "on" : "") + '" data-act="tab" data-id="' + id + '">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICO[id] + "</svg>" + n + "</button>").join("");
   chronoPeint();
-  const q = $("#q"); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
-  const ma = $("#ma"); if (ma && !ma.value) ma.focus();
-  const bc = $("#bc"); if (bc && V.tmp.bcfocus) { bc.focus(); bc.setSelectionRange(bc.value.length, bc.value.length); }
+  if (typeof mouvLance === "function") mouvLance();
 }
 
 /* ═════════ ÉVÉNEMENTS ═════════ */
@@ -816,7 +707,7 @@ document.addEventListener("click", (e) => {
 
   /* ── Questionnaire d'accueil ── */
   if (a.slice(0, 3) === "onb") {
-    const E = onbEtat(), q = ONBQ[E.i];
+    const E = onbEtat();
     if (a === "onbrep") {
       const [k, v] = id.split(".");
       const Q = ONBQ.filter((x) => x.k === k)[0];
@@ -836,19 +727,18 @@ document.addEventListener("click", (e) => {
     else if (a === "onbnum+" || a === "onbnum-") {
       const Q = ONBQ.filter((x) => x.k === id)[0] || {};
       const pas = Q.pas || 1, cur = Number(E.rep[id] != null ? E.rep[id] : Q.def || 0);
-      E.rep[id] = Math.min(Q.max || 999, Math.max(Q.min || 0, cur + (a.slice(-1) === "+" ? pas : -pas)));
+      E.rep[id] = Math.min(Q.max || 999, Math.max(Q.min || 0, Math.round((cur + (a.slice(-1) === "+" ? pas : -pas)) * 10) / 10));
     }
     else if (a === "onbpasser") { onbPasser(); V.onb = null; }
     else if (a === "onbgo") {
       onbGenere(E.rep);
       V.onb = null; V.tab = "seance"; V.day = todayKey();
-      rebuild();
     }
     render(); return;
   }
 
-  if (a === "tab") { V.tab = id; V.openEx = V.openMeal = V.picker = null; V.editFood = null; V.tmp = {}; }
-  else if (a === "day") { V.day = id; V.openEx = V.openMeal = V.picker = null; V.tmp = {}; }
+  if (a === "tab") { V.tab = id; V.openEx = null; V.tmp = {}; }
+  else if (a === "day") { V.day = id; V.openEx = null; V.tmp = {}; }
   else if (a === "padel") { S.padel[d] = !S.padel[d]; save(); }
   else if (a === "sem") { V.tmp.sem = !V.tmp.sem; if (V.tmp.sem) { V.tmp.semDay = d; V.tmp.semMsg = ""; } }
   else if (a === "semday") { V.tmp.semDay = V.tmp.semDay === id ? null : id; }
@@ -869,15 +759,18 @@ document.addEventListener("click", (e) => {
   }
   else if (a === "oublidette") { S.dette = S.dette.filter((x) => x.id !== id); save(); V.tmp.semMsg = "Séance abandonnée pour cette fois."; }
   else if (a === "openex") { V.openEx = V.openEx === id ? null : id; V.tmp = {}; V.exTab = "series"; }
-  else if (a === "extab") { V.exTab = id; }
+  else if (a === "extab") { V.exTab = id; delete V.tmp.pt; }
+  else if (a === "pt") { V.tmp.pt = +id; }
+  else if (a === "wpt") { V.tmp.wpt = +id; }
+  else if (a === "mouv") { if (typeof mouvBascule === "function") mouvBascule(el); return; }
   else if (a === "setdone" && ex) {
     const k = +id, on = toggleSet(d, ex.id, k, ex.s);
     // cocher une série lance la pause, sauf sur la dernière : il n'y a plus rien à attendre
-    if (on && ex.rest && nbFaites(d, ex.id) < ex.s) chronoGo(ex.rest, "Repos · " + ex.n);
+    if (on && ex.rest && nbFaites(d, ex.id) < ex.s) chronoGo(ex.rest, ex.n);
     else if (on) chronoStop();
   }
   else if (a === "ch.go") chronoGo(+id, "Repos");
-  else if (a === "ch.ex") { const e2 = exList(sess).filter((x) => x.id === id)[0]; if (e2) chronoGo(e2.rest || 90, "Repos · " + e2.n); }
+  else if (a === "ch.ex") { const e2 = exList(sess).filter((x) => x.id === id)[0]; if (e2) chronoGo(e2.rest || 90, e2.n); }
   else if (a === "ch.pause") chronoPause();
   else if (a === "ch.plus") chronoDecale(15);
   else if (a === "ch.moins") chronoDecale(-15);
@@ -917,104 +810,16 @@ document.addEventListener("click", (e) => {
     S.runs[dayStamp(d)] = { min: t.min, km: t.km, pace: Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0"), fast: s < 355 };
     save();
   }
-  else if (a === "pw") {
-    const k = dayStamp(d), on = !S.pw[k];
-    S.pw[k] = on;
-    S.extras[k] = (S.extras[k] || []).filter((e) => !e.pw);
-    if (on) S.extras[k] = S.extras[k].concat([{ k:"apurnapw", g: FOODS.apurnapw.uG, pw: 1 }]);
-    save();
-  }
-  else if (a === "swapg") {
-    const [mi, vi] = id.split(".").map(Number), v = GOUTER_VARIANTS[vi];
-    editPlan((p) => { p[d][mi].f = JSON.parse(JSON.stringify(v.f)); p[d][mi].t = "Goûter — " + v.n; });
-  }
-  else if (a === "rk+" || a === "rk-" || a === "rp+" || a === "rp-") {
-    const k = dayStamp(d), f = a[1] === "k" ? "kcal" : "p", st = f === "kcal" ? 10 : 5;
-    S.reel[k] = S.reel[k] || { kcal:0, p:0 };
-    S.reel[k][f] = Math.max(0, (S.reel[k][f] || 0) + (a.endsWith("+") ? st : -st));
-    save();
-  }
-  else if (a === "propok") { accepter(propositions()[+id]); }
-  else if (a === "propno") { refuser(propositions()[+id]); }
-  else if (a === "propoff") { V.tmp.propsOff = 1; }
-  else if (a === "mealdone") {
-    const k = dayStamp(d); S.done[k] = S.done[k] || {};
-    S.done[k][id] = !S.done[k][id]; save();
-  }
-  else if (a === "clore") { cloreSemaine(); }
   else if (a === "newweek") {
     if (!V.tmp.nw) { V.tmp.nw = 1; }
-    else {
-      cloreSemaine(); resetWeek();
-      V.tmp = { nwmsg: "Planning type rétabli, courses et padels remis à zéro." };
-    }
+    else { cloreSemaine(); resetWeek(); V.tmp = {}; }
   }
-  else if (a === "scan") {
-    const code = (V.tmp.bc || "").replace(/\D/g, "");
-    if (!code) { V.tmp.bcmsg = "Tape d'abord les chiffres du code-barres."; render(); return; }
-    V.tmp.bcmsg = "Recherche…"; render();
-    chercherCodeBarres(code, (id2, err) => {
-      V.tmp.bcmsg = err || ("Ajouté : " + FOODS[id2].n + " — " + FOODS[id2].k + " kcal /100 g");
-      if (!err) V.tmp.bc = "";
-      render();
-    });
-    return;
-  }
-  else if (a === "openmeal") { V.openMeal = V.openMeal === +id ? null : +id; }
-  else if (a === "q+" || a === "q-") {
-    const [mi, fi] = id.split(".").map(Number);
-    editPlan((p) => { const it = p[d][mi].f[fi], st = FOODS[it[0]].st || 10;
-      it[1] = Math.max(0, Math.round((it[1] + (a === "q+" ? st : -st)) * 10) / 10); });
-  }
-  else if (a === "delfood") { const [mi, fi] = id.split(".").map(Number); editPlan((p) => p[d][mi].f.splice(fi, 1)); }
-  else if (a === "addto") { V.picker = +id; V.tmp.q = ""; V.tmp.pick = null; }
-  else if (a === "picker") { V.picker = "extra"; V.tmp.q = ""; V.tmp.pick = null; }
-  else if (a === "pick") { V.tmp.pick = id; V.tmp.pg = FOODS[id].uG || 100; }
-  else if (a === "pg+" || a === "pg-") { const st = FOODS[V.tmp.pick].st || 10; V.tmp.pg = Math.max(st, Math.round((V.tmp.pg + (a === "pg+" ? st : -st)) * 10) / 10); }
-  else if (a === "addfood") {
-    if (V.picker === "extra") {
-      const k = dayStamp(d); S.extras[k] = (S.extras[k] || []).concat([{ k: V.tmp.pick, g: V.tmp.pg }]); save();
-    } else editPlan((p) => p[d][V.picker].f.push([V.tmp.pick, V.tmp.pg]));
-    V.picker = null; V.tmp.pick = null;
-  }
-  else if (a === "closepicker") { V.picker = null; V.tmp.pick = null; }
-  else if (a === "delextra") { const k = dayStamp(d); S.extras[k].splice(+id, 1); save(); }
-  else if (a === "supp") { const k = dayStamp(d); S.supps[k] = S.supps[k] || {}; S.supps[k][id] = !S.supps[k][id]; save(); }
-  else if (a === "apurna") { const k = dayStamp(d); S.apurna[k] = !S.apurna[k]; save(); }
-  else if (a === "phase") { S.phase = id; alignPlan(); save(); }
-  else if (a === "align") { alignPlan(); save(); }
+  else if (a === "phase") { S.phase = id; save(); }
   else if (a === "w+" || a === "w-") V.tmp.w = Math.round((V.tmp.w + (a === "w+" ? 0.1 : -0.1)) * 10) / 10;
-  else if (a === "savew") { S.weights = S.weights.filter((x) => x.d !== iso()).concat([{ d: iso(), kg: V.tmp.w }]).sort((x, y) => x.d.localeCompare(y.d)); save(); }
-  else if (a === "applyadj") { applyAdjust(+id); save(); }
-  else if (a === "shop") { S.shop[id] = !S.shop[id]; save(); }
-  else if (a === "stock") { S.stock = S.stock || {}; S.stock[id] = !S.stock[id]; if (S.stock[id]) S.shop[id] = false; save(); }
-  else if (a === "resetshop") { S.manual = S.manual.filter((m) => !S.shop[m.id]); S.shop = {}; S.stock = {}; save(); }
-  else if (a === "addman") { V.tmp.addman = 1; V.tmp.ma = ""; V.tmp.mq = ""; }
-  else if (a === "cancelman") { V.tmp.addman = 0; }
-  else if (a === "saveman") {
-    const n = (V.tmp.ma || "").trim();
-    if (!n) { V.tmp.addman = 1; render(); return; }
-    S.manual.push({ id: "m" + Date.now(), n, q: (V.tmp.mq || "").trim() });
-    V.tmp.addman = 0; V.tmp.ma = ""; V.tmp.mq = ""; save();
+  else if (a === "savew") {
+    S.weights = S.weights.filter((x) => x.d !== iso()).concat([{ d: iso(), kg: V.tmp.w }]).sort((x, y) => x.d.localeCompare(y.d));
+    save(); delete V.tmp.wpt;
   }
-  else if (a === "delman") { S.manual = S.manual.filter((m) => m.id !== id); delete S.shop[id]; save(); }
-  else if (a === "editfood") { V.editFood = id; }
-  else if (a === "closefood") { V.editFood = null; }
-  else if (a && a.indexOf("f.") === 0) {
-    const f = a[2], k = V.editFood, st = f === "k" ? 5 : 0.5;
-    const cur = FOODS[k][f], nv = Math.max(0, Math.round((cur + (el.textContent === "+" ? st : -st)) * 10) / 10);
-    S.foodEdits[k] = Object.assign({}, S.foodEdits[k], { [f]: nv }); rebuild(); save();
-  }
-  else if (a === "supptoggle") { S.suppOff[id] = !S.suppOff[id]; save(); }
-  else if (a === "persojours") { V.tmp.pj = id; }
-  else if (a === "addperso") {
-    const n = (V.tmp.pn || "").trim();
-    if (n) {
-      S.perso.push({ id:"p" + Date.now(), n:n, d:(V.tmp.pd || "").trim(), w:(V.tmp.pw2 || "").trim(), jours:V.tmp.pj || "tous" });
-      save(); V.tmp.pn = ""; V.tmp.pd = ""; V.tmp.pw2 = "";
-    }
-  }
-  else if (a === "delperso") { S.perso = S.perso.filter((p) => p.id !== id); save(); }
   else if (a === "export") {
     const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
     const u = URL.createObjectURL(blob), link = document.createElement("a");
@@ -1029,20 +834,12 @@ document.addEventListener("click", (e) => {
     setTimeout(() => location.reload(), 500);
     return;
   }
-  else if (a === "resetplan") { if (confirm("Remettre le plan de repas d'origine ?")) { S.plan = null; rebuild(); save(); } }
-  else if (a === "wipe") { if (confirm("Effacer toutes tes données ?")) { S = JSON.parse(JSON.stringify(BLANK)); rebuild(); save(); } }
+  else if (a === "wipe") { if (confirm("Effacer toutes tes données ? Séances, charges et pesées seront perdues.")) { S = JSON.parse(JSON.stringify(BLANK)); save(); } }
   else return;
   render();
 });
 
 document.addEventListener("input", (e) => {
-  if (e.target.id === "q") { V.tmp.q = e.target.value; render(); }
-  if (e.target.id === "bc") { V.tmp.bc = e.target.value; }
-  if (e.target.id === "ma") { V.tmp.ma = e.target.value; }
-  if (e.target.id === "pn") { V.tmp.pn = e.target.value; }
-  if (e.target.id === "pd") { V.tmp.pd = e.target.value; }
-  if (e.target.id === "pw2") { V.tmp.pw2 = e.target.value; }
-  if (e.target.id === "mq") { V.tmp.mq = e.target.value; }
   if (e.target.dataset && e.target.dataset.dte && /^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) {
     S.races[e.target.dataset.dte] = e.target.value; save(); render();
   }
@@ -1050,28 +847,18 @@ document.addEventListener("input", (e) => {
 
 document.addEventListener("change", (e) => {
   const el = e.target; if (!el.dataset || !el.dataset.fld) return;
-  const v = parseFloat(String(el.value).replace(",", ".")), fld = el.dataset.fld, id = el.dataset.id, d = V.day;
+  const v = parseFloat(String(el.value).replace(",", ".")), fld = el.dataset.fld, id = el.dataset.id;
   if (isNaN(v) || v < 0) { render(); return; }
   if (fld === "onbnum") {
     const Q = ONBQ.filter((x) => x.k === id)[0] || {};
     onbEtat().rep[id] = Math.min(Q.max || 999, Math.max(Q.min || 0, v));
     render(); return;
   }
-  if (fld === "q") { const [mi, fi] = id.split(".").map(Number); editPlan((p) => { p[d][mi].f[fi][1] = v; }); }
-  else if (fld === "rk" || fld === "rp") {
-    const k = dayStamp(d); S.reel[k] = S.reel[k] || { kcal:0, p:0 };
-    S.reel[k][fld === "rk" ? "kcal" : "p"] = Math.round(v); save();
-  }
-  else if (fld === "skg") V.tmp.kgs[+id] = v;
+  if (fld === "skg") V.tmp.kgs[+id] = v;
   else if (fld === "rep") V.tmp.reps[+id] = Math.round(v);
-  else if (fld === "pg") V.tmp.pg = v;
-  else if (fld === "w") V.tmp.w = v;
+  else if (fld === "w") V.tmp.w = Math.round(v * 10) / 10;
   else if (fld === "run.min") V.tmp.run.min = v;
   else if (fld === "run.km") V.tmp.run.km = v;
-  else if (fld.indexOf("f.") === 0) {
-    S.foodEdits[V.editFood] = Object.assign({}, S.foodEdits[V.editFood], { [fld[2]]: v });
-    rebuild(); save();
-  }
   render();
 });
 

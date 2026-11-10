@@ -227,9 +227,9 @@ function defsAnat() {
     "</radialGradient>";
 
   let d = "<defs>" +
-    grad("gRepos", "#E8E6DE", "#CFCCC1") +
-    grad("gSec",   "#F6B6A6", "#DE8470") +
-    grad("gPrim",  "#E8604A", "#B4301C") +
+    grad("gRepos", "#E4E7E9", "#CBD0D4") +
+    grad("gSec",   "#F7B9B2", "#E88A80") +
+    grad("gPrim",  "#EE5A4C", "#C2261A") +
     "";
 
   /* Une découpe par muscle, face et dos confondus : les identifiants sont
@@ -306,10 +306,10 @@ function schemaMuscles(prim, sec) {
   let leg = "";
   if (prim.length)
     leg += '<p class="anatleg"><i class="d p"></i>' +
-           prim.map(nom).join(" · ") + "</p>";
+           "<b>Moteurs</b> " + prim.map(nom).join(", ").toLowerCase() + "</p>";
   if (sec.length)
     leg += '<p class="anatleg"><i class="d s"></i>' +
-           sec.map(nom).join(" · ") + "</p>";
+           "<b>En soutien</b> " + sec.map(nom).join(", ").toLowerCase() + "</p>";
 
   return '<div class="anatbox">' + svg + leg + "</div>";
 }
@@ -352,6 +352,20 @@ const EXINFO = {
           "Contrôle la descente, le guidage de la machine ne le fait pas pour toi."],
     secu:"Un banc trop incliné transforme le mouvement en développé épaules et use l'avant de l'épaule. Vérifie l'angle avant chaque série." },
 
+  dim_h: { p:["pecto","delt_a","triceps"], s:["delt_l","avbras"],
+    tech:["Banc à 30°, pas plus : au-delà, c'est l'épaule qui travaille.",
+          "Omoplates serrées, haltères au niveau du haut de la poitrine en bas.",
+          "Coudes à 45° du buste, avant-bras verticaux sous les haltères.",
+          "Les haltères se rapprochent en haut sans se toucher."],
+    secu:"Pour installer des haltères lourds : pose-les sur les cuisses assis, et bascule en arrière en les montant avec les genoux. Ne les ramasse pas bras écartés une fois allongé." },
+
+  dips_m: { p:["pecto","triceps","delt_a"], s:[],
+    tech:["Genoux sur le coussin : plus tu mets de charge, plus la machine t'aide.",
+          "Buste penché en avant pour les pectoraux, droit pour les triceps.",
+          "Descends jusqu'à ce que les bras forment un angle droit, pas plus bas.",
+          "Épaules basses, éloignées des oreilles."],
+    secu:"Ici, progresser, c'est RETIRER de la charge d'assistance. Quand tu fais tes séries avec très peu d'aide, passe aux dips au poids du corps." },
+
   dips: { pdc:1, p:["pecto","triceps","delt_a"], s:["abdos"],
     tech:["Buste penché en avant pour cibler les pectoraux, buste droit pour les triceps.",
           "Descends jusqu'à ce que les bras forment un angle droit, pas plus bas.",
@@ -371,6 +385,12 @@ const EXINFO = {
           "Remonte en contrôlant, sans laisser la poulie te tirer."],
     secu:"Reculer d'un pas pour prendre plus lourd fait travailler le dos à la place des triceps. Reste près de la poulie." },
 
+  tribarre: { p:["triceps"], s:["avbras"],
+    tech:["Coudes collés au buste et immobiles : seuls les avant-bras bougent.",
+          "Pousse la barre jusqu'à l'extension complète, poignets droits.",
+          "Remonte en contrôlant jusqu'à ce que les avant-bras dépassent l'horizontale."],
+    secu:"Si les épaules avancent pour finir la répétition, la charge est trop lourde : c'est le poids du corps qui pousse, plus les triceps." },
+
   triext: { p:["triceps"], s:["delt_a"],
     tech:["Coudes serrés vers l'avant et pointés vers le plafond.",
           "Descends derrière la nuque jusqu'à sentir l'étirement, sans douleur.",
@@ -386,7 +406,7 @@ const EXINFO = {
           "Corps gainé, pas d'élan de jambes."],
     secu:"Lâcher complètement en bas met toute la charge sur la capsule de l'épaule. Garde une tension minimale dans le dos en position basse." },
 
-  tract_sup: { p:["dorsaux","biceps"], s:["rhomb","avbras","abdos"],
+  tract_sup: { pdc:1, p:["dorsaux","biceps"], s:["rhomb","avbras","abdos"],
     tech:["Prise supination largeur d'épaules, poignets neutres.",
           "Les biceps prennent une part plus grande qu'en pronation : la charge monte plus vite, la progression aussi.",
           "Coudes vers le bas et l'arrière."],
@@ -398,6 +418,14 @@ const EXINFO = {
           "Serre les omoplates une seconde en fin de tirage.",
           "Retour contrôlé, laisse les omoplates s'écarter sans arrondir le dos."],
     secu:"Dos arrondi sous charge en position avancée : c'est le disque qui encaisse. Garde la poitrine ouverte sur toute l'amplitude." },
+
+  rowhalt: { p:["dorsaux","rhomb"], s:["biceps","delt_p","trap","avbras","abdos"],
+    tech:["Un genou et la main du même côté sur le banc, l'autre pied au sol, dos plat et parallèle au sol.",
+          "L'haltère part bras tendu sous l'épaule, omoplate relâchée vers le bas.",
+          "Tire le coude vers la hanche, le long du corps : l'haltère arrive à la taille, pas à la poitrine.",
+          "Serre l'omoplate une seconde en haut, redescends lentement.",
+          "Le buste ne tourne pas pour aider : les épaules restent parallèles au sol."],
+    secu:"Tirer d'un coup de buste fait monter la charge sans faire travailler le dos. Si tu dois pivoter pour finir la série, l'haltère est trop lourd." },
 
   tirvert: { p:["dorsaux"], s:["biceps","trap","avbras"],
     tech:["Léger recul du buste, pas plus de 15°.",
@@ -417,6 +445,18 @@ const EXINFO = {
           "Contrôle la descente autant que la montée, c'est là que le muscle se construit."],
     secu:"La barre droite force la supination du poignet. Si les poignets tirent, passe à la barre EZ." },
 
+  curlez: { p:["biceps"], s:["avbras"],
+    tech:["Prise sur les parties inclinées de la barre : les poignets sont à mi-chemin entre supination et prise marteau.",
+          "Coudes devant les hanches et fixes.",
+          "Pas de balancier, descente contrôlée."],
+    secu:"C'est la barre qui ménage les poignets et les coudes. Si le coude tire quand même, passe au curl marteau." },
+
+  curlhalt: { p:["biceps"], s:["avbras"],
+    tech:["Paumes vers l'avant, ou rotation en montant : la paume finit tournée vers l'épaule.",
+          "Coudes fixes le long du corps, un bras après l'autre ou les deux ensemble.",
+          "Descente contrôlée jusqu'au bras presque tendu."],
+    secu:"L'épaule qui avance en haut du mouvement enlève la tension du biceps. Arrête la montée quand le coude commence à bouger." },
+
   curlinc: { p:["biceps"], s:["avbras"],
     tech:["Dos plaqué au banc, bras pendants derrière le corps : c'est ce qui étire la longue portion.",
           "Ne monte pas trop haut, l'épaule ne doit pas avancer.",
@@ -431,12 +471,21 @@ const EXINFO = {
 
   /* ── Jambes ───────────────────────────────────────────────────── */
 
-  squat: { p:["quadri","fessiers"], s:["ischios","adduct","lomb","abdos","mollets"],
-    tech:["Pieds à largeur d'épaules, pointes légèrement ouvertes.",
-          "Genoux dans l'axe des pieds, ils suivent la direction des orteils.",
-          "Descends jusqu'à ce que la hanche passe sous le genou, si ta mobilité le permet sans que le bassin bascule.",
-          "Gainage avant de descendre : inspire, bloque, descends, remonte, souffle en haut."],
-    secu:"Le dos qui s'enroule en bas est le signal d'arrêt. Monte la charge seulement quand l'amplitude complète passe sans cette bascule." },
+  squat: { p:["quadri","fessiers"], s:["ischios","adduct","abdos","mollets"],
+    tech:["Épaules calées sous les coussins, dos plaqué au dossier du haut jusqu'au bassin.",
+          "Pieds à largeur d'épaules sur la plateforme, pointes légèrement ouvertes. Plus ils sont bas, plus les quadriceps travaillent.",
+          "La machine décrit un arc : laisse-la te guider, les genoux suivent la direction des orteils.",
+          "Descends jusqu'à ce que la hanche passe sous le genou, sans que le bassin décolle du dossier.",
+          "Inspire et bloque avant de descendre, souffle en haut. Genoux jamais verrouillés d'un coup sec."],
+    secu:"Le bassin qui s'enroule et décolle du dossier en bas est le signal d'arrêt : c'est le bas du dos qui prend. Monte la charge seulement quand l'amplitude complète passe sans cette bascule." },
+
+  presse: { p:["quadri","fessiers"], s:["ischios","adduct","mollets"],
+    tech:["Dos et bassin plaqués au siège, ils y restent du début à la fin.",
+          "Pieds à largeur d'épaules au milieu du plateau. Plus haut : davantage de fessiers. Plus bas : davantage de quadriceps.",
+          "Descends jusqu'à ce que les genoux arrivent vers 90°, tant que le bassin ne décolle pas.",
+          "Pousse avec tout le pied, genoux dans l'axe des orteils.",
+          "En haut, garde les genoux très légèrement fléchis."],
+    secu:"Deux erreurs à éviter : verrouiller les genoux en extension sous charge, et descendre si bas que le bassin s'enroule. Dans les deux cas, la charge passe du muscle à l'articulation." },
 
   squat_bar: { p:["quadri","fessiers"], s:["ischios","adduct","lomb","abdos","trap"],
     tech:["Barre posée sur les trapèzes, pas sur les cervicales.",
@@ -464,6 +513,12 @@ const EXINFO = {
           "Retour contrôlé jusqu'à l'étirement complet."],
     secu:"Le bassin qui décolle transfère la charge sur le bas du dos. Si ça arrive, c'est trop lourd." },
 
+  legcurl_a: { p:["ischios"], s:["mollets"],
+    tech:["À plat ventre, genoux juste au bord du banc, coussin au-dessus des talons.",
+          "Hanches plaquées au banc : elles ne se soulèvent pas quand tu plies.",
+          "Ramène les talons vers les fesses, marque un temps, redescends lentement."],
+    secu:"Les hanches qui décollent, c'est le bas du dos qui aide. Baisse la charge jusqu'à garder le bassin au contact." },
+
   hip: { p:["fessiers"], s:["ischios","abdos"],
     tech:["Haut du dos appuyé sur le banc, pieds à plat.",
           "En haut, le corps forme une ligne droite épaules-hanches-genoux, rien de plus.",
@@ -477,6 +532,12 @@ const EXINFO = {
           "Genoux tendus pour cibler le jumeau, fléchis pour le soléaire."],
     secu:"Les mollets répondent à la fréquence et à l'amplitude, pas à la charge. Charge trop lourde et tu ne fais que rebondir." },
 
+  mollets_a: { p:["mollets"], s:[],
+    tech:["Assis, coussin sur le bas des cuisses, avant du pied sur la marche.",
+          "Genoux fléchis : c'est le soléaire qui travaille, le muscle profond du mollet.",
+          "Talons le plus bas possible, puis montée maximale. Une seconde à chaque extrémité."],
+    secu:"Pas de rebond en bas : le tendon d'Achille encaisse l'élan à la place du muscle." },
+
   /* ── Épaules et abdominaux ────────────────────────────────────── */
 
   dm: { p:["delt_a","delt_l","triceps"], s:["trap","abdos","lomb"],
@@ -485,6 +546,13 @@ const EXINFO = {
           "Trajectoire verticale, pas vers l'avant.",
           "Coudes légèrement devant la barre au départ."],
     secu:"La cambrure lombaire sous charge est le vrai danger du développé militaire. Si tu dois cambrer, la charge est trop lourde." },
+
+  dm_h: { p:["delt_a","delt_l","triceps"], s:["trap","abdos"],
+    tech:["Haltères à hauteur d'oreilles au départ, avant-bras verticaux, coudes légèrement en avant.",
+          "Pousse à la verticale, les haltères se rapprochent en haut sans se cogner.",
+          "Assis dos calé, ou debout fessiers et abdos serrés.",
+          "Redescends jusqu'à ce que les coudes passent juste sous les épaules."],
+    secu:"Coudes tirés loin en arrière en bas : l'avant de l'épaule est en butée. Garde-les légèrement devant le plan du corps." },
 
   elevlat: { p:["delt_l"], s:["trap"],
     tech:["Monte jusqu'à l'horizontale, pas au-dessus.",
@@ -525,7 +593,8 @@ const EXINFO = {
     secu:"Le balancement met le bas du dos en contrainte à chaque retour. Mieux vaut six répétitions strictes que douze balancées." },
 
   crunch: { p:["abdos"], s:["obliq"],
-    tech:["Enroule la colonne vertèbre par vertèbre, le bassin ne bouge pas.",
+    tech:["À genoux face à la poulie haute, corde tenue de chaque côté de la tête.",
+          "Enroule la colonne vertèbre par vertèbre, le bassin ne bouge pas.",
           "Le mouvement est court : c'est un enroulement, pas une flexion de hanche.",
           "Souffle en fin de contraction."],
     secu:"Si tu tires sur la nuque avec la corde, pose les mains sur les tempes et réduis la charge." },
@@ -544,6 +613,14 @@ const EXINFO = {
           "Au point haut de la tirée, bascule les poignets et passe les coudes devant.",
           "Termine par un dips : pousse jusqu'aux bras tendus."],
     secu:"Geste technique avant d'être un geste de force, et c'est pour ça qu'il est en début de séance. Fatigué, on ne l'apprend pas, on le rate et on se rattrape mal. Si la tirée n'atteint pas le bas des pectoraux, reste à l'élastique." },
+
+  muscleup_el: { p:["dorsaux","pecto","triceps","biceps"], s:["delt_a","trap","abdos","avbras"],
+    tech:["Élastique accroché à la barre, un pied ou un genou dedans : il t'aide surtout en bas.",
+          "Prise pouces par-dessus la barre, comme pour le muscle up strict.",
+          "Tirée explosive jusqu'au bas des pectoraux, puis bascule des poignets et coudes devant.",
+          "Termine par le dips, bras tendus au-dessus de la barre.",
+          "Progresser, c'est prendre un élastique plus fin, pas ajouter des répétitions sans fin."],
+    secu:"Vérifie l'accroche de l'élastique avant chaque série, et sors le pied en contrôlant : un élastique qui lâche revient vite." },
 
   sdt: { p:["ischios","fessiers","lomb"], s:["trap","dorsaux","quadri","avbras","abdos"],
     tech:["Barre contre les tibias au départ, milieu du pied sous la barre.",
@@ -628,7 +705,8 @@ const EXINFO = {
 
   dim_lourd: { p:["pecto","delt_a","triceps"], s:["delt_l","abdos"],
     tech:["Banc à 30°, omoplates serrées.",
-          "Fourchette basse en répétitions : c'est le mouvement principal de la semaine B.",
+          "La barre descend sur le haut de la poitrine, coudes sous la barre.",
+          "Fourchette basse en répétitions : c'est le développé principal de la séance.",
           "Descente contrôlée, pas de rebond."],
     secu:"Même règle que sur le développé incliné normal : si l'épaule tire devant, l'angle du banc est trop ouvert." },
 
@@ -775,6 +853,9 @@ const EXINFO = {
    Même geste, même technique, même anatomie : une seule fiche pour les deux. */
 const EXALIAS = {
   b_curlmart: "curlmart",
+  arriere_h: "b_oiseaux",        // oiseau aux haltères : même geste que celui du bonus
+  b_oiseaux_pan: "arriere",      // machine debout : la fiche de la machine, pas celle des haltères
+  pecdeck: "pecfly",             // écarté à la machine, pas à la poulie
 };
 
 /* Fiche d'un exercice, avec repli sur l'exercice de base pour les variantes */

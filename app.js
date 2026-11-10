@@ -2,24 +2,14 @@
 
 const KEY = "coach.v2";
 const BLANK = {
-  foodEdits:{}, foodAdd:{}, plan:null, charges:{}, logs:{}, runs:{}, weights:[],
-  extras:{}, supps:{}, padel:{}, skipped:{}, apurna:{}, pw:{}, stock:{}, shop:{},
-  done:{}, seen:{}, snap:null, manual:[], dette:[], variante:{}, refus:[], seance:{}, perso:[], suppOff:{}, reel:{},
-  sets:{}, phase:"p1", offset:0, onb:null, minKcal:0,
+  charges:{}, logs:{}, runs:{}, weights:[], padel:{}, skipped:{}, seen:{}, dette:[],
+  variante:{}, seance:{}, sets:{}, reset:{}, races:{}, migr:{}, phase:"p1", onb:null,
 };
 let S = load();
-if (!S.pw) S.pw = {};
-if (!S.stock) S.stock = {};
-if (!S.done) S.done = {};
 if (!S.seen) S.seen = {};
-if (!S.manual) S.manual = [];
 if (!S.dette) S.dette = [];
 if (!S.variante) S.variante = {};
-if (!S.refus) S.refus = [];
 if (!S.seance) S.seance = {};
-if (!S.perso) S.perso = [];
-if (!S.suppOff) S.suppOff = {};
-if (!S.reel) S.reel = {};
 if (!S.sets) S.sets = {};
 if (!S.migr) S.migr = {};
 /* Le muscle up s'ajoute en tête de la séance force, une fois et une seule :
@@ -42,10 +32,17 @@ if (!S.migr.onb0) {
     S.onb = { existant: 1 };
   save();   // le verrou doit survivre même si rien d'autre n'est enregistré ensuite
 }
+/* L'alimentation est sortie de l'application : le suivi se fait ailleurs.
+   On retire ce qu'elle avait enregistré — plan de repas, aliments, courses,
+   compléments — pour que l'export ne transporte plus que l'entraînement. */
+if (!S.migr.sansRepas) {
+  S.migr.sansRepas = 1;
+  ["foodEdits", "foodAdd", "plan", "extras", "supps", "apurna", "pw", "stock", "shop", "done",
+   "manual", "refus", "perso", "suppOff", "reel", "offset", "minKcal", "snap"].forEach((k) => { delete S[k]; });
+  save();
+}
 // on ne garde les séries cochées que 21 jours : c'est de l'état de séance, pas de l'historique
 Object.keys(S.sets).forEach((k) => { if (k.slice(0, 10) < daysAgo(21)) delete S.sets[k]; });
-let FOODS = {}, PLAN = {};
-
 function load() {
   try { const r = JSON.parse(localStorage.getItem(KEY)); if (r) return Object.assign({}, BLANK, r); }
   catch (e) {}
@@ -53,65 +50,15 @@ function load() {
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
 
-function rebuild() {
-  FOODS = {};
-  for (const k in DEFAULT_FOODS) FOODS[k] = Object.assign({}, DEFAULT_FOODS[k], S.foodEdits[k] || {});
-  for (const k in S.foodAdd) FOODS[k] = S.foodAdd[k];
-  PLAN = S.plan ? S.plan : JSON.parse(JSON.stringify(DEFAULT_PLAN));
-}
-function editPlan(fn) {
-  if (!S.plan) S.plan = JSON.parse(JSON.stringify(DEFAULT_PLAN));
-  fn(S.plan); rebuild(); save();
-}
-rebuild();
-
 /* ═════════ OUTILS ═════════ */
 
 const $ = (s) => document.querySelector(s);
 const fr = (n) => String(Math.round(n * 10) / 10).replace(".", ",");
+const fr2 = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(".", ",");   // pentes : 0,27 et non 0,3
+const signe = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + fr2(Math.abs(n));
 const todayKey = () => DAYS[(new Date().getDay() + 6) % 7];
 const iso = () => new Date().toISOString().slice(0, 10);
 const dayStamp = (d) => iso() + ":" + d;
-
-function mac(items) {
-  let k = 0, p = 0, c = 0, l = 0;
-  (items || []).forEach(([f, g]) => {
-    const F = FOODS[f]; if (!F) return;
-    k += F.k * g / 100; p += F.p * g / 100; c += F.c * g / 100; l += F.l * g / 100;
-  });
-  return [k, p, c, l];
-}
-function dayMac(day) {
-  const t = [0, 0, 0, 0];
-  (PLAN[day] || []).forEach((m) => { const x = mac(m.f); for (let i = 0; i < 4; i++) t[i] += x[i]; });
-  const ex = S.extras[dayStamp(day)] || [];
-  const x = mac(ex.map((e) => [e.k, e.g])); for (let i = 0; i < 4; i++) t[i] += x[i];
-  return t;
-}
-const FULL_DAYS = ["Lun","Mar","Mer","Jeu"];   // vendredi : dîner chez les parents, hors plan
-function baseTarget() { return PHASES[S.phase].kcal + (S.offset || 0); }
-function target(day) {
-  if (WEEKEND[day]) return WEEKEND[day].kcal;       // samedi et dimanche ont leur propre cible
-  if (FULL_DAYS.indexOf(day) < 0) return null;      // pas de cible sur un jour partiel
-  return baseTarget() + (S.padel[day] ? 350 : 0);
-}
-/* Moyenne hebdomadaire réelle : 5 jours de semaine + le week-end budgété. */
-function moyenneSemaine() {
-  return Math.round((baseTarget() * 5 + WEEKEND.Sam.kcal + WEEKEND.Dim.kcal) / 7);
-}
-function deficitSemaine() {
-  const MAINTENANCE = 2800;
-  return Math.round(MAINTENANCE * 7 - (baseTarget() * 5 + WEEKEND.Sam.kcal + WEEKEND.Dim.kcal));
-}
-function qtyLabel(f, g) {
-  const F = FOODS[f];
-  if (F.uG) {
-    const n = g / F.uG;
-    const nn = Math.abs(n - Math.round(n)) < 0.06 ? Math.round(n) : Math.round(n * 10) / 10;
-    return nn + " " + F.uN + (nn > 1 ? "s" : "") + " · " + fr(g) + " " + F.u;
-  }
-  return fr(g) + " " + F.u;
-}
 
 /* ═════════ PROGRESSION MUSCU ═════════ */
 
@@ -232,18 +179,6 @@ function placerDette(id) {
   return cible;
 }
 
-function replanTextOld() {
-  const order = ["Mer", "Lun", "Mar", "Jeu"];
-  const miss = DAYS.filter((d) => S.skipped[d] && order.indexOf(d) >= 0)
-                   .sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  if (!miss.length) return null;
-  if (miss.length === 1)
-    return "La séance " + DEFAULT_PROGRAM[miss[0]].name.toLowerCase() +
-           " passe au vendredi, à la place de la force full body. Le reste de la semaine ne bouge pas.";
-  return "Deux séances manquées. " + DEFAULT_PROGRAM[miss[0]].name + " vendredi, " +
-         DEFAULT_PROGRAM[miss[1]].name.toLowerCase() + " samedi à la place de la course facile. La sortie longue du dimanche ne se déplace pas.";
-}
-
 /* ═════════ SÉRIES COCHÉES ═════════ */
 /* Où il en est dans la séance, série par série. Remis à zéro chaque jour
    puisque c'est indexé sur la date. */
@@ -278,64 +213,136 @@ function avancement(day, sess) {
 }
 
 /* ═════════ HISTORIQUE PAR EXERCICE ═════════ */
-/* Une valeur par séance validée, pour tracer la progression depuis le début.
+/* Tout ce que l'onglet Progression et le bilan de la semaine ont besoin de
+   savoir sur un exercice, calculé une seule fois à partir des séances.
 
-   Pour un exercice chargé, l'indicateur est le 1RM estimé (formule d'Epley :
-   charge × (1 + reps/30)) sur la meilleure série. Il résume charge ET
-   répétitions en un seul nombre : passer de 5 à 7 reps à charge égale se voit,
-   là où une courbe de charge seule resterait plate pendant des semaines.
+   La grandeur suivie est la CHARGE de travail, pas un 1RM estimé. Le 1RM
+   estimé mélange charge et répétitions : le jour où on passe de 6-8 à 4-6
+   répétitions avec 5 kg de plus, il baisse — alors qu'on est plus fort. Une
+   courbe qui descend quand la barre monte ne renseigne personne. La charge
+   et les répétitions sont donc montrées séparément, comme on les vit en
+   salle : on gagne des répétitions à charge égale, puis on monte la charge. */
 
-   Pour un exercice au poids du corps, c'est le total de répétitions — ou de
-   secondes quand la fourchette est manifestement un temps (gainage, suspension). */
-
-/* Poids de corps retenu pour les mouvements lestés. On prend le dernier
-   relevé et on l'applique à TOUTE l'historique, volontairement : une courbe
-   qui monterait parce que tu as repris du poids ne dirait rien de ta force.
-   Constante identique partout, c'est la forme de la courbe qui informe. */
+/* Poids de corps retenu pour les mouvements lestés : la dernière pesée. */
 function poidsCorps() {
   const w = S.weights;
   return w && w.length ? w[w.length - 1].kg : 75;
 }
 
-function histoExo(ex) {
-  const raw = [];
+/* Une séance → ses nombres utiles. La charge de référence est la série la
+   plus lourde ; les répétitions comptées sont celles faites à cette charge. */
+function lireSeance(d, e) {
+  const reps = (e.reps || []).map((r) => r || 0);
+  /* Avant le suivi série par série, une séance ne stockait qu'une charge. */
+  const kgs = (e.kgs && e.kgs.length === reps.length) ? e.kgs.slice() : reps.map(() => e.kg || 0);
+  const top = kgs.length ? Math.max.apply(null, kgs) : 0;
+  let repsTop = 0, tot = 0, vol = 0, best = 0;
+  const ref = [];                      // répétitions des séries faites à la charge de tête
+  reps.forEach((r, i) => {
+    tot += r; vol += r * kgs[i];
+    if (r > best) best = r;
+    if (kgs[i] === top && r > 0) { repsTop += r; ref.push(r); }
+  });
+  return { d: d, reps: reps, kgs: kgs, top: top, tot: tot, vol: vol, best: best,
+           repsTop: repsTop, ref: ref, moy: ref.length ? repsTop / ref.length : 0,
+           series: reps.filter((r) => r > 0).length,
+           next: e.next != null ? e.next : null };
+}
+
+/* avant = date ISO facultative : on ne regarde que les séances d'avant ce jour */
+function histoExo(ex, avant) {
+  const reset = (S.reset || {})[ex.id] || null;
+  const tout = [];
   Object.keys(S.logs).sort().forEach((k) => {
     const e = S.logs[k][ex.id];
-    if (!e || !e.reps || !e.reps.length) return;
-    /* Les séances d'avant le suivi série par série ne stockent qu'une charge
-       unique. Sans ce repli, elles comptaient pour zéro et la courbe partait
-       du plancher — une progression inventée de toutes pièces. */
-    const kgs = (e.kgs && e.kgs.length) ? e.kgs : e.reps.map(() => e.kg || 0);
-    raw.push({ d: k.slice(0, 10), e: e, kgs: kgs });
+    if (avant && k.slice(0, 10) >= avant) return;
+    if (e && e.reps && e.reps.length) tout.push(lireSeance(k.slice(0, 10), e));
   });
 
   const f = typeof fiche === "function" ? fiche(ex) : null;
-  const pdc = !!(f && f.pdc);                 // tractions, dips : le corps compte
-  const corps = pdc ? poidsCorps() : 0;
+  const pdc = !!(f && f.pdc);
+  const leste = tout.some((x) => x.top > 0);
+  /* Quatre façons de mesurer, selon ce que l'exercice permet de charger :
+       charge — une barre, une machine, des haltères
+       lest   — poids du corps plus un lest (tractions, dips)
+       temps  — tenue en secondes (gainage, suspension)
+       reps   — poids du corps seul */
+  const mode = ex.u ? "temps"
+             : (ex.bw && !ex.inc) ? "reps"
+             : pdc ? (leste ? "lest" : "reps")
+             : leste ? "charge" : "reps";
 
-  /* Trois familles de courbes :
-       — lesté sur poids du corps  → 1RM estimé, corps inclus
-       — chargé classique          → 1RM estimé sur la barre ou la machine
-       — poids du corps pur, ou temps → total de répétitions ou de secondes */
-  const charge = pdc ||
-    (!(ex.bw && !ex.inc) && raw.some((x) => Math.max.apply(null, x.kgs.concat([0])) > 0));
-  const u = charge ? "kg" : (ex.r && ex.r[1] >= 25 ? "s" : "reps");
+  /* Les comparaisons partent de la remise à zéro s'il y en a une */
+  const s = reset ? tout.filter((x) => x.d >= reset) : tout;
+  return { tout: tout, s: s, mode: mode, pdc: pdc, corps: pdc ? poidsCorps() : 0, reset: reset,
+           unite: mode === "temps" ? ex.u : mode === "reps" ? "reps" : "kg" };
+}
 
-  const pts = raw.map((x) => {
-    let v = 0;
-    if (charge) {
-      x.kgs.forEach((kg, i) => {
-        const z = (corps + kg) * (1 + (x.e.reps[i] || 0) / 30);
-        if (z > v) v = z;
-      });
-      v = Math.round(v * 10) / 10;
-    } else v = (x.e.reps || []).reduce((a, b) => a + b, 0);
-    return { d: x.d, v: v, kg: Math.max.apply(null, x.kgs.concat([0])),
-             rp: Math.max.apply(null, (x.e.reps || []).concat([0])) };
-  });
+/* Où en est un exercice :
+     monte   — la fourchette vient d'être bouclée, ou bien, sur trois séances,
+               la charge a augmenté ou les répétitions à charge égale
+     stable  — ni l'une ni l'autre n'a bougé
+     baisse  — la charge ou les répétitions ont reculé
+     debut   — pas encore trois séances pour juger
+   C'est la règle que l'application applique elle-même pour faire monter une
+   charge : on ne peut pas être « bloqué » pendant qu'on gagne des répétitions.
 
-  return { pts: pts, u: u, charge: charge, pdc: pdc, corps: corps,
-           reset: (S.reset || {})[ex.id] || null };
+   Les répétitions se comparent sur les séries communes aux deux séances.
+   Passer de 4 séries à 3 fait baisser le total sans que personne ait
+   régressé ; comparer les trois premières séries entre elles, si. */
+function etatExo(ex, avant) {
+  const H = histoExo(ex, avant), s = H.s, n = s.length;
+  if (!n) return { etat: "debut", n: 0, H: H };
+  const c = s[n - 1];
+  const charge = H.mode === "charge" || H.mode === "lest";
+
+  /* Fourchette bouclée à la dernière séance. Pour une charge, on reprend le
+     verdict enregistré ce jour-là : la fourchette a pu changer depuis. */
+  const valide = charge
+    ? (c.next != null ? c.next > c.top
+                      : c.ref.length === c.series && c.series >= ex.s && c.ref.every((r) => r >= ex.r[1]))
+    : (c.series >= ex.s && c.ref.every((r) => r >= ex.r[1]));
+
+  let palier = 1;                                    // séances d'affilée à la même charge
+  while (palier < n && s[n - 1 - palier].top === c.top) palier++;
+
+  const out = { n: n, palier: palier, top: c.top, H: H, der: c, valide: valide, dReps: 0, dKg: 0 };
+  if (valide) { out.etat = "monte"; return out; }
+  if (n < 3) { out.etat = "debut"; return out; }
+
+  /* Écart de répétitions entre deux séances, sur leurs séries communes */
+  const ecart = (x, y) => {
+    const k = Math.min(x.ref.length, y.ref.length);
+    const som = (t) => t.slice(0, k).reduce((u, v) => u + v, 0);
+    const sx = som(x.ref);
+    return { d: som(y.ref) - sx, seuil: Math.max(2, Math.round(sx * 0.05)) };   // sous le seuil, c'est du bruit
+  };
+  const juge = (e) => (e.d >= e.seuil ? "monte" : e.d <= -e.seuil ? "baisse" : "stable");
+
+  const a = s[n - 3];
+  out.av = a;
+  out.dKg = Math.round((c.top - a.top) * 10) / 10;
+  if (charge && out.dKg < 0) { out.etat = "baisse"; return out; }
+  if (charge && out.dKg > 0) {
+    /* La charge a monté sur trois séances. Mais si elle avait déjà été
+       soulevée avant, ce n'est une progression que si on y fait mieux :
+       80 → 82,5 → 85 après être redescendu de 85, c'est un retour. */
+    let deja = null;
+    for (let i = n - 4; i >= 0 && !deja; i--) if (s[i].top >= c.top) deja = s[i];
+    if (deja && deja.top === c.top) {
+      const e = ecart(deja, c);
+      out.retour = deja; out.dReps = e.d; out.etat = juge(e);
+    } else {
+      out.etat = "monte";
+      if (deja) out.sous = deja;            // encore sous une charge déjà faite
+    }
+    return out;
+  }
+
+  const e = ecart(a, c);
+  out.dReps = e.d;
+  out.etat = juge(e);
+  return out;
 }
 
 /* ═════════ CALENDRIER DE SAISON ═════════ */
@@ -446,152 +453,51 @@ function chronoSonne() {
   } catch (e) {}
 }
 
-/* ═════════ POIDS → AJUSTEMENT ═════════ */
+/* ═════════ TENDANCE DU POIDS ═════════ */
+/* Une pente en kg par semaine, calculée sur les DATES des pesées.
 
-function trend() {
-  const w = S.weights;
-  if (w.length < 6) return null;
-  const a1 = w.slice(-3).reduce((a, b) => a + b.kg, 0) / 3;
-  const a0 = w.slice(-6, -3).reduce((a, b) => a + b.kg, 0) / 3;
-  const delta = a1 - a0, cible = PHASES[S.phase].gain, gap = delta - cible;
-  const seche = cible < 0;
+   L'ancienne version comparait la moyenne des trois dernières pesées à
+   celle des trois précédentes et appelait l'écart « par semaine », quel que
+   soit le temps réellement écoulé. Deux blocs de pesées séparés de trois
+   semaines donnaient alors une perte trois fois trop rapide.
 
-  // trop bas par rapport à la cible : en sèche ça veut dire que tu descends trop vite
-  if (gap < -0.15) return { delta, gap, adj: 150, msg: seche
-      ? "Tu perds " + fr(Math.abs(gap)) + " kg/semaine de trop vite. Remonte de 150 kcal : au-delà de 0,5 kg/semaine tu perds du muscle avec le gras."
-      : "Tu es " + fr(Math.abs(gap)) + " kg sous la trajectoire. Il faut 150 kcal de plus par jour." };
+   Ici : droite des moindres carrés sur les pesées des 28 derniers jours,
+   avec son incertitude. Quand l'intervalle est large, on le dit au lieu
+   d'annoncer un chiffre. */
+const T80 = { 2:1.89, 3:1.64, 4:1.53, 5:1.48, 6:1.44, 7:1.42, 8:1.40, 9:1.38, 10:1.37 };   // Student, 80 %
 
-  // trop haut : en sèche ça veut dire que la perte s'est arrêtée
-  if (gap > 0.15) return { delta, gap, adj: -150, msg: seche
-      ? "La perte a ralenti de " + fr(gap) + " kg/semaine. Descends de 150 kcal, c'est le palier suivant."
-      : "Tu montes " + fr(gap) + " kg trop vite. Il faut 150 kcal de moins par jour." };
+function tendance() {
+  const w = (S.weights || []).slice().sort((a, b) => a.d.localeCompare(b.d));
+  if (!w.length) return { ok: 0, n: 0, msg: "Aucune pesée pour l'instant." };
+  const jour = (d) => new Date(d + "T12:00:00").getTime() / J;
+  const fin = jour(w[w.length - 1].d);
+  const pts = w.filter((p) => fin - jour(p.d) <= 28).map((p) => ({ x: jour(p.d) - fin, y: p.kg }));
+  const n = pts.length, etendue = n ? -pts[0].x : 0;
+  const age = Math.round(jour(iso()) - fin);
+  if (n < 4 || etendue < 10)
+    return { ok: 0, n: n, etendue: etendue, age: age,
+             msg: "Il faut au moins 4 pesées étalées sur 10 jours pour calculer une pente. " +
+                  "Tu en as " + n + " sur " + Math.round(etendue) + " jour" + (etendue >= 2 ? "s" : "") + "." };
 
-  return { delta, gap, adj: 0, msg: "Tu es sur la trajectoire. Ne touche à rien cette semaine." };
+  const mx = pts.reduce((a, p) => a + p.x, 0) / n, my = pts.reduce((a, p) => a + p.y, 0) / n;
+  let sxx = 0, sxy = 0;
+  pts.forEach((p) => { sxx += (p.x - mx) * (p.x - mx); sxy += (p.x - mx) * (p.y - my); });
+  const b = sxy / sxx, a = my - b * mx;
+  let sse = 0;
+  pts.forEach((p) => { const r = p.y - (a + b * p.x); sse += r * r; });
+  const se = n > 2 ? Math.sqrt(sse / (n - 2) / sxx) : 0;
+  const t = T80[Math.min(10, n - 2)] || 1.3;
+
+  const pente = b * 7, marge = t * se * 7;
+  const cible = PHASES[S.phase].gain;
+  const bas = pente - marge, haut = pente + marge;
+  /* Le verdict ne tombe que si tout l'intervalle est du même côté de la cible */
+  const verdict = haut < cible - 0.05 ? "vite" : bas > cible + 0.05 ? "lent" : "cible";
+  return { ok: 1, n: n, etendue: etendue, age: age, pente: pente, bas: bas, haut: haut, marge: marge,
+           cible: cible, verdict: verdict, a: a, b: b, fin: w[w.length - 1].d, lisse: a };
 }
 
-/* Réécrit les féculents des journées complètes pour que le plan tombe sur la cible. */
-function planKcal(plan, d) {
-  let k = 0;
-  plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (FOODS[f]) k += FOODS[f].k * g / 100; }));
-  return k;
-}
-function planProt(plan, d) {
-  let p = 0;
-  plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (FOODS[f]) p += FOODS[f].p * g / 100; }));
-  return p;
-}
-function alignPlan() {
-  const P = PHASES[S.phase];
-  editPlan((plan) => {
-    FULL_DAYS.forEach((d) => {
-      /* Deux leviers qui se contrarient : monter les protéines ajoute des calories,
-         couper les féculents retire des protéines (pâtes et pain en contiennent).
-         On alterne donc jusqu'à ce que les deux cibles tiennent ensemble. */
-      for (let round = 0; round < 4; round++) {
-        /* 1) Les protéines d'abord. En déficit c'est la seule macro qu'on ne négocie pas :
-           baisser les calories sans les tenir revient à couper dans le muscle.
-           On augmente en priorité l'aliment le plus riche en protéines par calorie. */
-        for (let i = 0; i < 60 && P.prot && planProt(plan, d) < P.prot - 1; i++) {
-          let best = null;
-          plan[d].forEach((m) => m.f.forEach((it) => {
-            if (PROT_FOODS.indexOf(it[0]) < 0) return;
-            const F = FOODS[it[0]]; if (!F || !F.k) return;
-            const r = F.p / F.k;
-            if (!best || r > best.r) best = { it: it, r: r, step: F.uG ? F.uG / 2 : 10 };
-          }));
-          if (!best) break;
-          best.it[1] += best.step;
-        }
-        /* 2) Puis les féculents, pour retomber sur la cible calorique. */
-        let bouge = false;
-        for (let pass = 0; pass < 4; pass++) {
-          const need = baseTarget() - planKcal(plan, d);
-          if (Math.abs(need) < 25) break;
-          let carbK = 0;
-          plan[d].forEach((m) => m.f.forEach(([f, g]) => { if (CARB_FOODS.indexOf(f) >= 0) carbK += FOODS[f].k * g / 100; }));
-          if (carbK <= 0) break;
-          const factor = Math.max(0.75, Math.min(1.3, (carbK + need) / carbK));
-          plan[d].forEach((m) => m.f.forEach((it) => {
-            if (CARB_FOODS.indexOf(it[0]) < 0) return;
-            const F = FOODS[it[0]], step = F.uG ? F.uG / 2 : 5;
-            const avant = it[1];
-            it[1] = Math.max(step, Math.round(it[1] * factor / step) * step);
-            if (it[1] !== avant) bouge = true;
-          }));
-        }
-        if (!bouge && (!P.prot || planProt(plan, d) >= P.prot - 1)) break;
-      }
-    });
-  });
-}
-function applyAdjust(adj) {
-  const P = PHASES[S.phase], vise = baseTarget() + adj, m = plancher();
-  // plancher de sécurité : on ne descend pas en dessous du minimum
-  if (m && vise < m) S.offset = m - P.kcal;
-  else S.offset = (S.offset || 0) + adj;
-  alignPlan();
-}
-/* Le plancher calorique dépend du gabarit. Celui de PHASES est calibré sur
-   un corps précis ; dès qu'un utilisateur a renseigné le sien, c'est le
-   plancher proportionnel qui fait foi. */
-function plancher() { return S.minKcal || PHASES[S.phase].min || 0; }
-function auPlancher() { const m = plancher(); return !!(m && baseTarget() <= m); }
-
-/* ═════════ COURSES (calculées depuis le plan) ═════════ */
-
-const RAYONS = { frais:"Frais", viande:"Viandes & poissons", epicerie:"Épicerie", legume:"Fruits & légumes", complement:"Compléments", horsplan:"Divers" };
-
-function shoppingList() {
-  const tot = {};
-  ["Lun", "Mar", "Mer", "Jeu", "Ven"].forEach((d) =>
-    (PLAN[d] || []).forEach((m) => m.f.forEach(([f, g]) => { tot[f] = (tot[f] || 0) + g; })));
-  const out = {};
-  Object.keys(tot).forEach((f) => {
-    const F = FOODS[f]; if (!F || F.k === 0) return;
-    const g = tot[f];
-    let q;
-    if (F.pack) { const n = Math.ceil(g / F.pack[0]); q = n + " × " + F.pack[1]; }
-    else { const a = F.arr || 50; q = Math.ceil(g / a) * a + " " + F.u; }
-    const r = F.cat || "epicerie";
-    (out[r] = out[r] || []).push({ f, n: F.n, q, g });
-  });
-  Object.keys(out).forEach((r) => out[r].sort((a, b) => a.n.localeCompare(b.n)));
-  return out;
-}
-
-/* ═════════ COMPLÉMENTS ═════════ */
-
-function supplements(day) {
-  const m = new Date().getMonth(), c = CURES[m], hiver = m >= 9 || m <= 3;
-  const ap = !!S.apurna[dayStamp(day)];
-  const s0 = sessionOf(day); const gym = !!(s0 && s0.kind === "gym");
-  const pw = !!S.pw[dayStamp(day)];
-  const list = [
-    { id:"crea", n:"Créatine", d:pw ? "2 g" : "5 g",
-      w:pw ? "Le pre-workout en apporte déjà 3 g" : "Dans le goûter, tous les jours" },
-    { id:"om3",  n:"Oméga-3 (Ergy 3)", d:"selon boîte", w:"Au repas" },
-    { id:"vitd", n:"Ergy D Plus", d:hiver ? "2 gouttes" : "1 goutte", w:"Petit-déjeuner, avec du gras" },
-    { id:"mag",  n:"Ergymag", d:(ap ? 2 : c.mag) + " gélules", w:ap ? "2 maximum : la boisson d'effort en apporte déjà" : "Fractionné midi et soir" },
-  ];
-  if (c.multi) list.push({ id:"multi", n:"MultiCÉBÉ", d:"dose boîte", w:"Petit-déjeuner" });
-  if (c.spi)   list.push({ id:"spi",   n:"Spiruline", d:"4 comprimés", w:"Midi" });
-  if (c.ergy)  list.push({ id:"ergyp", n:"Ergyphilus Confort", d:"1 gélule", w:"À jeun le matin" });
-  if (gym)     list.push({ id:"whey",  n:"Whey", d:"30 g", w:"Après la séance" });
-  if (ap)      list.push({ id:"apurna", n:"Apurna Hydratation", d:"1 dose",
-                          w:"Pendant l'effort, environ 500 ml par heure, à siroter" });
-  (S.perso || []).forEach((p) => {
-    if (p.jours === "seance" && !gym) return;
-    list.push({ id:p.id, n:p.n, d:p.d || "", w:p.w || "" });
-  });
-  if (pw)      list.push({ id:"pwsupp", n:"Apurna Pre Workout", d:"1 dose de 20 g", w:"30 à 45 min avant la séance, dans 500 ml d'eau" });
-  return list.filter((x) => !S.suppOff[x.id]);
-}
-
-
-/* ═════════ BILAN AUTOMATIQUE ═════════
-   Aucun serveur : à chaque ouverture, l'app relit ce que tu as
-   enregistré et en tire les consignes des jours suivants.
-*/
+/* ═════════ SUIVI ═════════ */
 
 function weekId(date) {
   const t = new Date(date || new Date());
@@ -604,54 +510,76 @@ function weekId(date) {
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 const lastKeys = (obj, n) => Object.keys(obj || {}).filter((k) => k.slice(0, 10) >= daysAgo(n));
 
-/* Ce que la semaine écoulée dit du programme */
-function bilanSemaine() {
-  const logKeys = lastKeys(S.logs, 7);
-  const jours = {};
-  logKeys.forEach((k) => { if (Object.keys(S.logs[k] || {}).length) jours[k.slice(0, 10)] = 1; });
-  const seances = Object.keys(jours).length;
-
-  // exercices qui ont pris de la charge depuis le dernier bilan
-  const snap = S.snap || {};
-  const montes = [], bloques = [];
-  Object.keys(S.charges).forEach((id) => {
-    if (snap[id] != null && S.charges[id] > snap[id]) montes.push(id);
-  });
-
-  // stagnation : trois validations d'affilée sans montée
-  const parExo = {};
-  Object.keys(S.logs).sort().forEach((k) =>
+/* Séances, séries et tonnage entre deux dates (bornes incluses / exclues) */
+function volume(depuis, avant) {
+  const jours = {}; let series = 0, kg = 0;
+  Object.keys(S.logs).forEach((k) => {
+    const d = k.slice(0, 10);
+    if (d < depuis || (avant && d >= avant)) return;
     Object.keys(S.logs[k]).forEach((id) => {
-      if (!depuisReset(id, k)) return;   // avant la remise à zéro, ça ne compte pas
-      (parExo[id] = parExo[id] || []).push(S.logs[k][id]);
-    }));
-  Object.keys(parExo).forEach((id) => {
-    const t = parExo[id].slice(-3);
-    if (t.length === 3 && t.every((e) => e.next === e.kg)) bloques.push(id);
+      const x = lireSeance(d, S.logs[k][id]);
+      if (!x.series) return;
+      jours[d] = 1; series += x.series; kg += x.vol;
+    });
   });
+  return { seances: Object.keys(jours).length, series: series, kg: Math.round(kg) };
+}
 
-  // écarts hors plan
-  let horsPlan = 0;
-  lastKeys(S.extras, 7).forEach((k) => { horsPlan += mac((S.extras[k] || []).map((e) => [e.k, e.g]))[0]; });
+/* Les exercices du programme en cours, variantes actives comprises */
+function exosDuProgramme() {
+  const vus = {}, out = [];
+  DAYS.forEach((d) => {
+    const sess = sessionOf(d);
+    if (!sess || sess.kind !== "gym") return;
+    exList(sess).forEach((ex) => { if (!vus[ex.id]) { vus[ex.id] = 1; out.push(ex); } });
+  });
+  return out;
+}
 
-  // repas suivis
-  let faits = 0, prevus = 0;
-  lastKeys(S.done, 7).forEach((k) => { faits += Object.keys(S.done[k]).filter((i) => S.done[k][i]).length; });
-  FULL_DAYS.concat(["Ven"]).forEach((d) => { prevus += (PLAN[d] || []).length; });
+/* Lundi de la semaine en cours, et ce qui a été fait depuis */
+function debutSemaine() {
+  const t = new Date(); t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+  return t.toISOString().slice(0, 10);
+}
+function faitCetteSemaine(jour) {
+  const d0 = debutSemaine();
+  const dans = (o) => Object.keys(o || {}).some((k) => k.slice(11) === jour && k.slice(0, 10) >= d0 &&
+                                                          (o === S.runs || Object.keys(o[k]).length));
+  return dans(S.logs) || dans(S.runs);
+}
 
-  // course la plus longue
+function jourPlus(d, n) { const t = new Date(d + "T12:00:00"); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); }
+
+/* Ce que la dernière semaine complète, du lundi au dimanche, dit du programme.
+   Une fenêtre glissante de sept jours changerait de contenu selon le jour où
+   on ouvre l'application ; la semaine civile, non. */
+function bilanSemaine() {
+  const fin = debutSemaine(), deb = jourPlus(fin, -7);
+  const sem = volume(deb, fin), avant = volume(jourPlus(deb, -7), deb);
+
+  const montes = [], valides = [], surveiller = [];
+  exosDuProgramme().forEach((ex) => {
+    const E = etatExo(ex, fin), s = E.H.s, n = s.length;
+    if (!n) return;
+    const recent = s[n - 1].d >= deb;
+    /* Charge montée : la séance de la semaine est plus lourde que la précédente */
+    const monte = n >= 2 && recent && s[n - 1].top > s[n - 2].top;
+    if (monte) montes.push({ id: ex.id, de: s[n - 2].top, a: s[n - 1].top });
+    /* Fourchette bouclée cette semaine : la charge monte à la prochaine séance */
+    if (recent && E.valide) valides.push({ id: ex.id, de: E.top, a: E.der.next, charge: E.der.next != null && E.der.next > E.top });
+    /* À surveiller : trois séances récentes sans gagner ni charge ni répétitions */
+    else if (!monte && (E.etat === "stable" || E.etat === "baisse") && s[n - 1].d >= jourPlus(deb, -14))
+      surveiller.push({ id: ex.id, top: E.top, palier: E.palier, etat: E.etat, dReps: E.dReps, dKg: E.dKg,
+                        charge: E.H.mode === "charge" || E.H.mode === "lest" });
+  });
+  surveiller.sort((x, y) => (x.etat === "baisse" ? 0 : 1) - (y.etat === "baisse" ? 0 : 1));
+
   let longue = 0;
-  lastKeys(S.runs, 7).forEach((k) => { longue = Math.max(longue, S.runs[k].min); });
+  Object.keys(S.runs || {}).forEach((k) => { if (k.slice(0, 10) >= deb && k.slice(0, 10) < fin) longue = Math.max(longue, S.runs[k].min); });
 
-  // ce que tu as vraiment mangé, relevé sur Foodvisor
-  const rk = lastKeys(S.reel, 7).filter((k) => S.reel[k] && S.reel[k].kcal);
-  const reel = rk.length ? {
-    n: rk.length,
-    kcal: Math.round(rk.reduce((s, k) => s + S.reel[k].kcal, 0) / rk.length),
-    p: Math.round(rk.reduce((s, k) => s + (S.reel[k].p || 0), 0) / rk.length),
-  } : null;
-  return { seances, montes, bloques, horsPlan: Math.round(horsPlan / 7), faits, prevus, longue,
-           tr: trend(), dette: dettesEnAttente(), reel: reel };
+  return { du: deb, au: jourPlus(fin, -1), seances: sem.seances, series: sem.series, kg: sem.kg, avant: avant,
+           montes: montes, valides: valides, surveiller: surveiller, bloques: surveiller,
+           longue: longue, tr: tendance(), dette: dettesEnAttente() };
 }
 
 function nomExo(id) {
@@ -668,47 +596,19 @@ function nomExo(id) {
   return n;
 }
 
-/* Clôture : on fige les charges pour pouvoir comparer la semaine suivante */
+/* Clôture : la semaine suivante repart du planning type */
 function cloreSemaine() {
-  S.snap = JSON.parse(JSON.stringify(S.charges));
   S.seen.week = weekId();
-  S.manual = S.manual.filter((m) => !S.shop[m.id]);
-  S.shop = {}; S.stock = {}; S.skipped = {}; S.padel = {};
+  S.skipped = {}; S.padel = {};
   save();
 }
-
-/* ═════════ CODE-BARRES (Open Food Facts) ═════════ */
-
-function chercherCodeBarres(code, cb) {
-  fetch("https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(code) +
-        ".json?fields=product_name,brands,nutriments,serving_quantity")
-    .then((r) => r.json())
-    .then((j) => {
-      if (!j || j.status === 0 || !j.product) return cb(null, "Produit inconnu dans la base");
-      const p = j.product, n = p.nutriments || {};
-      const k = n["energy-kcal_100g"];
-      if (k == null) return cb(null, "Ce produit n'a pas de valeurs nutritionnelles renseignées");
-      const id = "of" + code;
-      const food = {
-        n: ((p.product_name || "Produit") + (p.brands ? " " + String(p.brands).split(",")[0] : "")).slice(0, 42),
-        u: "g", k: Math.round(k), p: Math.round((n.proteins_100g || 0) * 10) / 10,
-        c: Math.round((n.carbohydrates_100g || 0) * 10) / 10, l: Math.round((n.fat_100g || 0) * 10) / 10,
-        st: 10, cat: "epicerie",
-      };
-      if (p.serving_quantity > 0) { food.uG = +p.serving_quantity; food.uN = "portion"; }
-      S.foodAdd[id] = food; rebuild(); save();
-      cb(id, null);
-    })
-    .catch(() => cb(null, "Pas de réseau — réessaie quand tu auras de la connexion"));
-}
-
 
 /* ═════════ OBJECTIF DU JOUR, PAR EXERCICE ═════════ */
 
 /* Remise à zéro d'un exercice : quand l'exécution change (plus strict, plus
    profond, charge redescendue volontairement), l'ancien historique ne veut plus
    rien dire. On garde les logs, on déplace juste le point de comparaison. */
-function resetExo(id) { S.reset[id] = iso(); if (S.snap) delete S.snap[id]; save(); }
+function resetExo(id) { S.reset[id] = iso(); save(); }
 function annulerReset(id) { delete S.reset[id]; save(); }
 function depuisReset(id, k) { return !S.reset[id] || k.slice(0, 10) >= S.reset[id]; }
 
@@ -767,31 +667,3 @@ function exUp(sess, id) {
   if (i > 0) { l[i] = l[i - 1]; l[i - 1] = id; exSet(sess, l); }
 }
 function exReset(sess) { delete S.seance[sess.id]; save(); }
-
-/* ═════════ PROPOSITIONS DE REPAS ═════════ */
-
-function propositions() {
-  const out = [], n = parseInt(weekId().slice(-2), 10) || 0;
-  ["Lun", "Mar", "Mer", "Jeu", "Ven"].forEach((d, i) => {
-    [["dej", 1], ["diner", 3]].forEach(([slot, idx], j) => {
-      const meal = (PLAN[d] || [])[idx];
-      if (!meal) return;
-      const pool = REPAS_VAR[slot];
-      const cand = pool[(n + i * 2 + j) % pool.length];
-      // même source de protéines = même repas, on ne propose pas
-      if (!cand || !meal.f.length || meal.f[0][0] === cand.f[0][0]) return;
-      if (S.refus.indexOf(d + slot + cand.n) >= 0) return;
-      const delta = Math.round(mac(cand.f)[0] - mac(meal.f)[0]);
-      out.push({ d, idx, slot, cand, actuel: meal.t, delta });
-    });
-  });
-  return out.slice(0, 3);
-}
-function accepter(p) {
-  editPlan((plan) => {
-    plan[p.d][p.idx] = { t: (p.slot === "dej" ? "Déjeuner — " : "Dîner — ") + p.cand.n,
-                         h: plan[p.d][p.idx].h, f: JSON.parse(JSON.stringify(p.cand.f)) };
-  });
-  alignPlan(); save();
-}
-function refuser(p) { S.refus.push(p.d + p.slot + p.cand.n); save(); }

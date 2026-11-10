@@ -8,7 +8,7 @@
    chargement sur un téléphone déjà utilisé.
 
    Ce qu'il produit : une semaine type, la composition de chaque séance,
-   des charges de départ, et une cible calorique estimée. Rien de figé —
+   et des charges de départ. Rien de figé —
    tout reste modifiable ensuite dans l'application.
    ═════════════════════════════════════════════════════════════════════ */
 
@@ -59,7 +59,7 @@ const ONBQ = [
     ] },
 
   { k:"poids", t:"Ton poids de corps ?",
-    s:"Il sert à deux choses : suivre ta progression aux tractions et aux dips, et estimer tes calories.",
+    s:"Il sert à suivre ta progression aux tractions et aux dips, où c'est lui la charge, et à tracer ta courbe de poids.",
     num:1, unite:"kg", min:40, max:160, pas:1, def:75 },
 ];
 
@@ -247,18 +247,12 @@ function onbGenere(rep) {
   const kg = Number(rep.poids) || 75;
   S.weights = [{ d: iso(), kg: kg }];
 
-  /* Cible calorique estimée. Multiplicateur volontairement prudent, et
-     annoncé comme une estimation : c'est un point de départ, pas un verdict. */
-  const phase = ONBPHASE[rep.objectif] || "p1";
-  const ecart = { gras:-400, muscle:250, force:150, endurance:0 }[rep.objectif] || 0;
-  const estim = Math.round((kg * 33 + ecart) / 10) * 10;
-  S.phase  = phase;
-  S.offset = estim - PHASES[phase].kcal;
-  S.minKcal = Math.round(kg * 24 / 10) * 10;   // plancher proportionnel, pas celui d'un autre
+  /* La phase qui va avec l'objectif : elle fixe la variation de poids visée */
+  S.phase = ONBPHASE[rep.objectif] || "p1";
 
   S.onb = Object.assign({}, rep, { fait: iso() });
   save();
-  return { jours: Object.keys(plan).length, kcal: estim };
+  return { jours: Object.keys(plan).length };
 }
 
 /* ── Le verrou ────────────────────────────────────────────────────────── */
