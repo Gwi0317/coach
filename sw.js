@@ -1,4 +1,4 @@
-const CACHE = "coach-v50";
+const CACHE = "coach-v51";
 const FILES = ["./", "./index.html", "./data.js", "./anat.js", "./mouv.js", "./app.js", "./onb.js", "./ui.js",
                "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 

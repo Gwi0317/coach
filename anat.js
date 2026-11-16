@@ -701,6 +701,13 @@ const EXINFO = {
           "Respire : c'est la respiration qui relâche, pas la force."],
     secu:"L'étirement doit tirer, jamais piquer. Une douleur vive signifie qu'il faut reculer." },
 
+  cardio: { p:[], s:[], nomuscle:1,
+    tech:["Après la musculation, jamais avant : les charges passent d'abord.",
+          "Zone 2 : une allure où tu peux tenir une conversation. Si tu dois reprendre ton souffle pour parler, ralentis.",
+          "Vélo, tapis incliné en marche rapide, rameur ou elliptique : peu importe, tant que l'allure reste facile.",
+          "Le jour des jambes, choisis le vélo à faible résistance : le but est de faire circuler, pas de rajouter du travail aux cuisses."],
+    secu:"Vingt à trente minutes faciles s'ajoutent sans gêner la récupération. Plus dur ou plus long, cinq fois par semaine en sèche, et ce sont les charges qui reculent en premier." },
+
   /* ── Exercices hors séance type ───────────────────────────────── */
 
   dim_lourd: { p:["pecto","delt_a","triceps"], s:["delt_l","abdos"],

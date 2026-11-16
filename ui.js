@@ -256,7 +256,7 @@ function viewBilan() {
   if (b.surveiller.length)
     h += '<div class="bl warn"><b>À surveiller</b>' +
          lignes(b.surveiller, (x) => nomExo(x.id), (x) => (x.etat === "baisse"
-           ? (x.dKg < 0 ? "charge en baisse" : "−" + (-x.dReps) + " reps à " + fr(x.top) + " kg")
+           ? (x.dKg < 0 ? "charge en baisse" : "−" + (-x.dReps) + " reps" + (x.charge ? " à " + fr(x.top) + " kg" : ""))
            : plur(x.palier, "séance") + (x.charge ? " à " + kgTxt(x.top) : " sans bouger"))) +
          "<p>Un palier de trois séances n'est pas un problème en sèche. Au-delà de cinq, retire une série ou " +
          "redescends de 10 % pour repartir.</p></div>";
@@ -389,7 +389,7 @@ function viewSeance() {
          '<span class="idx">' + (done ? "✓" : i + 1) + '</span><div class="grow"><b>' + esc(ex.n) + "</b><small>" +
          ex.s + " × " + fourchette(ex) + (ex.u ? " " + ex.u : "") +
          (ex.rest ? "<i>pause " + pauseTxt(ex.rest) + "</i>" : "") + "</small></div>" +
-         '<div class="kg">' + (sansCharge ? "PDC" : fr(kg) + "<i>kg</i>") +
+         '<div class="kg">' + (sansCharge ? (ex.u ? ex.r[1] + "<i>" + ex.u + "</i>" : "PDC") : fr(kg) + "<i>kg</i>") +
          (!done && nf ? '<small class="' + (nf >= ex.s ? "ok" : "") + '">' + nf + " / " + ex.s + "</small>" : "") + "</div>" +
          (edit ? '<span class="exedit"><button data-act="exup" data-id="' + ex.id + '" aria-label="Monter">↑</button>' +
                  '<button data-act="exdel" data-id="' + ex.id + '" aria-label="Retirer">✕</button></span>' : "") +
@@ -623,7 +623,7 @@ function viewChrono() {
 
   if (sess && sess.kind === "gym") {
     h += "<h2>Les pauses de ta séance</h2><section class=\"carte liste\">";
-    exList(sess).forEach((ex) => {
+    exList(sess).filter((ex) => ex.rest > 0).forEach((ex) => {
       const nf = nbFaites(d, ex.id);
       h += '<div class="line"><div class="grow"><b>' + esc(ex.n) + "</b><small>" +
            plur(ex.s, "série") + (nf ? ", " + nf + " cochée" + (nf > 1 ? "s" : "") : "") + "</small></div>" +

@@ -72,6 +72,8 @@ function progress(ex, reps, kgs) {
   const plat = kgs.every((k) => k === top);
   const all = reps.every((r) => r >= hi), ok = reps.every((r) => r >= lo);
 
+  if (ex.u === "min")
+    return { kg: top, msg: all ? "Durée haute tenue" : ok ? "Dans la durée prévue" : "Plus court que prévu" };
   if (ex.bw && !ex.inc)
     return { kg: top, msg: all ? "Haut de fourchette atteint — ajoute une série" : ok ? "Objectif tenu" : "Consolide" };
 
@@ -566,7 +568,9 @@ function bilanSemaine() {
     const monte = n >= 2 && recent && s[n - 1].top > s[n - 2].top;
     if (monte) montes.push({ id: ex.id, de: s[n - 2].top, a: s[n - 1].top });
     /* Fourchette bouclée cette semaine : la charge monte à la prochaine séance */
-    if (recent && E.valide) valides.push({ id: ex.id, de: E.top, a: E.der.next, charge: E.der.next != null && E.der.next > E.top });
+    /* la charge annoncée est celle qui attend vraiment sur la carte, si elle a été ajustée depuis */
+    const proch = S.charges[ex.id] > E.top ? S.charges[ex.id] : E.der.next;
+    if (recent && E.valide) valides.push({ id: ex.id, de: E.top, a: proch, charge: proch != null && proch > E.top });
     /* À surveiller : trois séances récentes sans gagner ni charge ni répétitions */
     else if (!monte && (E.etat === "stable" || E.etat === "baisse") && s[n - 1].d >= jourPlus(deb, -14))
       surveiller.push({ id: ex.id, top: E.top, palier: E.palier, etat: E.etat, dReps: E.dReps, dKg: E.dKg,
@@ -667,3 +671,20 @@ function exUp(sess, id) {
   if (i > 0) { l[i] = l[i - 1]; l[i - 1] = id; exSet(sess, l); }
 }
 function exReset(sess) { delete S.seance[sess.id]; save(); }
+
+/* Semaine du 16 novembre 2026, sur une installation qui a déjà un historique :
+   — vingt à trente minutes de cardio s'ajoutent à la fin des cinq séances
+     de musculation (pas du bonus). Une fois et une seule : si on le retire
+     ensuite d'une séance, il ne revient pas ;
+   — le rowing haltère avance désormais de 2,5 kg : 34,5 n'existe pas en salle ;
+   — les tractions lestées étaient passées à 20 kg sur deux séries de 4, sous
+     la fourchette 5-6 : on repart de 15 kg, là où les trois séries tiennent. */
+if (!S.migr.s47) {
+  S.migr.s47 = 1;
+  if (Object.keys(S.logs).length) {
+    ["pec", "dos", "jambes", "epaules", "force"].forEach((id) => exAdd(SESS[id], "cardio"));
+    if (S.charges.rowhalt === 34.5) S.charges.rowhalt = 35;
+    if (S.charges.tract_f === 20) S.charges.tract_f = 15;
+  }
+  save();
+}

@@ -1,8 +1,8 @@
 /* ═════════ VERSION ═════════
    Affichée dans Réglages. À incrémenter à chaque envoi sur GitHub : c'est
    le seul moyen de voir du téléphone si la mise à jour est bien arrivée. */
-const VERSION = "5.0";
-const VERSION_DATE = "10 novembre 2026";
+const VERSION = "5.1";
+const VERSION_DATE = "15 novembre 2026";
 
 /* ═════════ SAISON ═════════ */
 /* Hyrox d'abord, marathon ensuite : un bloc marathon fait fondre et coûte les charges,
@@ -45,7 +45,7 @@ const DEFAULT_PROGRAM = {
       note:"5 séries de 5 propres plutôt qu'un maximum : chaque série doit ressembler à la première",
       alt:[{ id:"tract_sup", n:"Tractions supination", kg:0, inc:2.5 }] },
     { id:"tirhor",   n:"Tirage horizontal",          s:4, r:[8,10],  kg:55, inc:5,   rest:120, tier:1,
-      alt:[{ id:"rowhalt", n:"Rowing haltère unilatéral", kg:26, inc:2, s:3,
+      alt:[{ id:"rowhalt", n:"Rowing haltère unilatéral", kg:26, inc:2.5, s:3,
              note:"3 séries par bras. Coude le long du corps, on tire vers la hanche" }] },
     { id:"tirvert",  n:"Tirage vertical unilatéral", s:3, r:[10,12], kg:45, inc:5,   rest:90,  tier:2,
       alt:[{ id:"tirvert_b", n:"Tirage vertical barre", kg:55, inc:5 }] },
@@ -143,6 +143,8 @@ const BONUS = { id:"bonus", name:"Bonus complémentaire", kind:"gym", tag:"Le jo
 
 /* Exercices hors séance type, disponibles dans « Modifier les exercices » */
 const EXTRAS = [
+  { id:"cardio", n:"Cardio de fin de séance", s:1, r:[20,30], kg:0, inc:0, rest:0, bw:1, tier:3, u:"min",
+    note:"Zone 2 : tu dois pouvoir parler. Vélo, tapis incliné ou rameur. Le jour des jambes, vélo léger" },
   { id:"dim_lourd", n:"Développé incliné Smith lourd", s:3, r:[6,8],   kg:55, inc:2.5, rest:150, tier:1,
     note:"Le développé principal de la séance : fourchette basse, charge lourde" },
   { id:"pecfly",    n:"Pec fly (écarté machine)",      s:3, r:[10,12], kg:35, inc:5,   rest:75,  tier:3,
