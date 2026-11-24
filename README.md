@@ -63,6 +63,11 @@ Le verdict par rapport à la cible de la phase ne tombe que si tout l'intervalle
 même côté. Le graphique montre les pesées, la droite, et l'éventail des pentes que les
 données n'excluent pas.
 
+Une pesée touchée sur le graphique peut être supprimée (deux appuis) : une faute de frappe
+fausserait la pente pendant quatre semaines. Quand l'intervalle contient à la fois la cible et
+zéro, l'app ne dit pas « compatible avec la cible » mais que les pesées ne permettent pas encore
+de trancher.
+
 **Phases** — Sèche (−0,27 kg/semaine), Remontée (poids stable), Prise de masse
 (+0,25 kg/semaine). La phase fixe la cible à laquelle la tendance est comparée.
 
