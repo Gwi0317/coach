@@ -493,8 +493,12 @@ function tendance() {
   const pente = b * 7, marge = t * se * 7;
   const cible = PHASES[S.phase].gain;
   const bas = pente - marge, haut = pente + marge;
-  /* Le verdict ne tombe que si tout l'intervalle est du même côté de la cible */
-  const verdict = haut < cible - 0.05 ? "vite" : bas > cible + 0.05 ? "lent" : "cible";
+  /* Le verdict ne tombe que si tout l'intervalle est du même côté de la cible.
+     Quand l'intervalle contient à la fois la cible et zéro, les pesées ne
+     distinguent pas « je suis dans la cible » de « mon poids ne bouge pas » :
+     on le dit, au lieu d'annoncer « compatible avec la cible ». */
+  let verdict = haut < cible - 0.05 ? "vite" : bas > cible + 0.05 ? "lent" : "cible";
+  if (verdict === "cible" && cible !== 0 && bas <= 0 && haut >= 0) verdict = "indecis";
   return { ok: 1, n: n, etendue: etendue, age: age, pente: pente, bas: bas, haut: haut, marge: marge,
            cible: cible, verdict: verdict, a: a, b: b, fin: w[w.length - 1].d, lisse: a };
 }
@@ -519,6 +523,7 @@ function volume(depuis, avant) {
     const d = k.slice(0, 10);
     if (d < depuis || (avant && d >= avant)) return;
     Object.keys(S.logs[k]).forEach((id) => {
+      if (EXCAT[id] && EXCAT[id].u === "min") return;   // cardio, mobilité : des minutes, pas des séries
       const x = lireSeance(d, S.logs[k][id]);
       if (!x.series) return;
       jours[d] = 1; series += x.series; kg += x.vol;
@@ -686,5 +691,13 @@ if (!S.migr.s47) {
     if (S.charges.rowhalt === 34.5) S.charges.rowhalt = 35;
     if (S.charges.tract_f === 20) S.charges.tract_f = 15;
   }
+  save();
+}
+/* 23 novembre 2026 : la sèche prévue jusqu'au 30 novembre est prolongée
+   jusqu'à la fin décembre. On ne touche la date que si c'est encore
+   l'ancienne : une date changée à la main entre-temps est respectée. */
+if (!S.migr.s48) {
+  S.migr.s48 = 1;
+  if (S.races && S.races.fin === "2026-11-30") S.races.fin = "2026-12-31";
   save();
 }

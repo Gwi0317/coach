@@ -1,8 +1,8 @@
 /* ═════════ VERSION ═════════
    Affichée dans Réglages. À incrémenter à chaque envoi sur GitHub : c'est
    le seul moyen de voir du téléphone si la mise à jour est bien arrivée. */
-const VERSION = "5.1";
-const VERSION_DATE = "15 novembre 2026";
+const VERSION = "5.2";
+const VERSION_DATE = "23 novembre 2026";
 
 /* ═════════ SAISON ═════════ */
 /* Hyrox d'abord, marathon ensuite : un bloc marathon fait fondre et coûte les charges,

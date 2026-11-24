@@ -199,6 +199,9 @@ margin-bottom:12px;background:#E6E9EA;color:var(--encre2)}
 .carte .grafbox{border:0;padding:0;margin:0}
 .lect{font-size:13px;color:var(--encre2);margin-bottom:6px;font-variant-numeric:tabular-nums}
 .lect b{color:var(--encre);margin-right:8px}
+.lect .wdel{float:right;margin:-4px -2px 0 8px;padding:5px 10px;border:1px solid var(--trait);border-radius:99px;
+font-size:12px;font-weight:600;color:var(--encre2);background:var(--carte)}
+.lect .wdel.arme{border-color:var(--rouge);background:var(--rouge);color:#fff}
 .graf{display:block;width:100%;height:auto;overflow:visible;-webkit-user-select:none;user-select:none}
 .graf .gr{stroke:#E4E7E9;stroke-width:1}
 .graf .ax{font-size:10px;fill:var(--acier);font-variant-numeric:tabular-nums}
@@ -350,12 +353,12 @@ body.onbon header,body.onbon main,body.onbon nav,body.onbon #chrono{display:none
 <div id="onb"></div>
 <!-- Le ?v= force le téléphone à retélécharger les scripts au lieu de ressortir
      ceux qu'il a en cache. À incrémenter en même temps que VERSION dans data.js. -->
-<script src="data.js?v=51"></script>
-<script src="anat.js?v=51"></script>
-<script src="mouv.js?v=51"></script>
-<script src="app.js?v=51"></script>
-<script src="onb.js?v=51"></script>
-<script src="ui.js?v=51"></script>
+<script src="data.js?v=52"></script>
+<script src="anat.js?v=52"></script>
+<script src="mouv.js?v=52"></script>
+<script src="app.js?v=52"></script>
+<script src="onb.js?v=52"></script>
+<script src="ui.js?v=52"></script>
 <script>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function(){});
 </script>

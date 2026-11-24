@@ -279,6 +279,7 @@ function penteTxt(t) {
   const sg = signe;
   const lec = t.verdict === "vite" ? (t.cible < 0 ? "Plus rapide que la cible." : "Plus lent que la cible.")
             : t.verdict === "lent" ? (t.cible < 0 ? "Plus lent que la cible." : "Plus rapide que la cible.")
+            : t.verdict === "indecis" ? "Tes pesées n'excluent ni la cible ni un poids stable : il faut plus de recul pour trancher."
             : "Compatible avec la cible.";
   return "<b>" + sg(t.pente) + " kg par semaine</b> sur " + t.n + " pesées en " + Math.round(t.etendue) +
          " jours (intervalle à 80 % : " + sg(t.bas) + " à " + sg(t.haut) + "), pour une cible de " + sg(t.cible) + ". " + lec;
@@ -538,8 +539,17 @@ function grafPoids(t) {
     svg += '<rect class="hit" x="' + f1(g) + '" y="0" width="' + f1(Math.max(1, d - g)) + '" height="' + HT + '" data-act="wpt" data-id="' + i + '"/>';
   });
   svg += "</svg>";
-  return '<div class="grafbox"><p class="lect"><b>' + dateFr(pts[sel].d) + "</b>" + kgTxt(pts[sel].y) + "</p>" + svg +
-         (t && t.ok ? '<p class="grafpied">Points : tes pesées. Trait : la tendance sur 28 jours. Zone claire : les pentes que tes pesées n\'excluent pas.</p>' : "") + "</div>";
+  /* Une pesée touchée peut être supprimée : une faute de frappe fausserait
+     la pente pendant quatre semaines. Deux appuis, pour ne pas le faire par mégarde. */
+  const choisi = V.tmp.wpt != null && pts[V.tmp.wpt], dSel = pts[sel].d;
+  const suppr = choisi
+    ? '<button class="wdel' + (V.tmp.wdel === dSel ? " arme" : "") + '" data-act="wdel" data-id="' + dSel + '">' +
+      (V.tmp.wdel === dSel ? "Confirmer la suppression" : "Supprimer") + "</button>"
+    : "";
+  return '<div class="grafbox"><p class="lect"><b>' + dateFr(dSel) + "</b>" + kgTxt(pts[sel].y) + suppr + "</p>" + svg +
+         '<p class="grafpied">' + (t && t.ok ? "Points : tes pesées. Trait : la tendance sur 28 jours. Zone claire : les pentes que tes pesées n'excluent pas. " : "") +
+         "Touche un point pour le lire, ou le supprimer si c'est une erreur de saisie.</p>" +
+         (V.tmp.wmsg ? '<p class="small">' + esc(V.tmp.wmsg) + "</p>" : "") + "</div>";
 }
 
 function viewPoids() {
@@ -761,7 +771,17 @@ document.addEventListener("click", (e) => {
   else if (a === "openex") { V.openEx = V.openEx === id ? null : id; V.tmp = {}; V.exTab = "series"; }
   else if (a === "extab") { V.exTab = id; delete V.tmp.pt; }
   else if (a === "pt") { V.tmp.pt = +id; }
-  else if (a === "wpt") { V.tmp.wpt = +id; }
+  else if (a === "wpt") { V.tmp.wpt = +id; delete V.tmp.wdel; delete V.tmp.wmsg; }
+  else if (a === "wdel") {
+    if (V.tmp.wdel !== id) V.tmp.wdel = id;                       // premier appui : on arme
+    else {
+      const avant = S.weights.length;
+      S.weights = S.weights.filter((x) => x.d !== id);
+      if (S.weights.length < avant) save();
+      delete V.tmp.wpt; delete V.tmp.wdel;
+      V.tmp.wmsg = "Pesée du " + dateFr(id) + " supprimée.";
+    }
+  }
   else if (a === "mouv") { if (typeof mouvBascule === "function") mouvBascule(el); return; }
   else if (a === "setdone" && ex) {
     const k = +id, on = toggleSet(d, ex.id, k, ex.s);
